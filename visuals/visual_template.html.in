@@ -1,0 +1,479 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Sysbench Interactive Comparison</title>
+  <script>
+    function loadPlotly(cb) {
+      var s = document.createElement('script');
+      s.src = 'https://cdn.plot.ly/plotly-2.30.0.min.js';
+      s.onload = cb;
+      s.onerror = function() {
+        var s2 = document.createElement('script');
+        s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.30.0/plotly.min.js';
+        s2.onload = cb;
+        s2.onerror = function() {
+          document.getElementById('chart').innerHTML = '<p style="color:red;padding:20px">Could not load Plotly. Please open this file directly in a browser.</p>';
+        };
+        document.head.appendChild(s2);
+      };
+      document.head.appendChild(s);
+    }
+  </script>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 18px; }
+    .wrap { display: grid; grid-template-columns: 320px 1fr; gap: 18px; align-items: start; }
+    .card { border: 1px solid #ddd; border-radius: 12px; padding: 14px; }
+    label { display:block; font-weight: 600; margin: 10px 0 6px; }
+    select { width: 100%; padding: 8px; border-radius: 10px; border: 1px solid #ccc; }
+    select[multiple] { height: 300px; }
+    .hint { color: #555; font-size: 12px; line-height: 1.4; margin-top: 8px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .btnrow { display:flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+    button { padding: 8px 10px; border-radius: 10px; border: 1px solid #ccc; background: #f7f7f7; cursor: pointer; }
+    button:hover { background: #eee; }
+    #chart { height: 620px; cursor: crosshair; }
+
+    /* Download modal */
+    #dlOverlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45); z-index: 1000;
+      align-items: center; justify-content: center;
+    }
+    #dlOverlay.open { display: flex; }
+    #dlModal {
+      background: #fff; border-radius: 14px; padding: 24px 28px;
+      max-width: 580px; width: 94%; box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+      position: relative;
+    }
+    #dlModal h3 { margin: 0 0 4px; font-size: 15px; color: #222; }
+    #dlModal .subtitle { font-size: 12px; color: #888; margin-bottom: 16px; }
+    #dlModal .dl-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+    #dlModal .dl-list li {
+      display: flex; align-items: center; gap: 8px;
+      padding: 9px 12px; border-radius: 9px; border: 1px solid #e0e0e0;
+      background: #f8f9ff;
+    }
+    #dlModal .dl-list li.custom-extra {
+      background: #f0faf4; border-color: #b2dfdb;
+    }
+    #dlModal .dl-list li .ext {
+      background: #1a73e8; color: #fff; border-radius: 5px;
+      padding: 2px 7px; font-size: 11px; font-weight: 700; min-width: 54px;
+      text-align: center; flex-shrink: 0;
+    }
+    #dlModal .dl-list li.custom-extra .ext {
+      background: #00897b;
+    }
+    #dlModal .dl-list li .fname {
+      flex: 1; font-family: monospace; font-size: 12.5px; color: #333;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    #dlModal .dl-list li .actions { display: flex; gap: 6px; flex-shrink: 0; }
+    #dlModal .dl-list li .actions a {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 5px 11px; border-radius: 6px; font-size: 12px; font-weight: 600;
+      text-decoration: none; border: 1px solid; transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    #dlModal .dl-list li .actions .btn-dl {
+      background: #1a73e8; color: #fff; border-color: #1a73e8;
+    }
+    #dlModal .dl-list li .actions .btn-dl:hover { background: #1558b0; border-color: #1558b0; }
+    #dlModal .dl-list li .actions .btn-open {
+      background: #fff; color: #1a73e8; border-color: #1a73e8;
+    }
+    #dlModal .dl-list li .actions .btn-open:hover { background: #e8f0fe; }
+    #dlModal .dl-list li.custom-extra .actions .btn-dl {
+      background: #00897b; border-color: #00897b;
+    }
+    #dlModal .dl-list li.custom-extra .actions .btn-dl:hover { background: #00695c; border-color: #00695c; }
+    #dlModal .dl-list li.custom-extra .actions .btn-open {
+      color: #00897b; border-color: #00897b;
+    }
+    #dlModal .dl-list li.custom-extra .actions .btn-open:hover { background: #e0f2f1; }
+    #dlClose {
+      position: absolute; top: 12px; right: 14px; background: none;
+      border: none; font-size: 22px; cursor: pointer; color: #999; line-height: 1;
+      padding: 2px 6px; border-radius: 6px;
+    }
+    #dlClose:hover { background: #f0f0f0; color: #333; }
+  </style>
+</head>
+<body>
+  <h2>Sysbench Performance — Interactive Comparison</h2>
+  <div class="wrap">
+    <div class="card">
+      <label for="serverSel">Servers (multi-select)</label>
+      <select id="serverSel" multiple></select>
+      <div class="hint">Tip: Ctrl/Cmd-click to select multiple. Use "Select all".</div>
+
+      <div class="row">
+        <div>
+          <label for="memSel">Memory (multi-select)</label>
+          <select id="memSel" multiple></select>
+        </div>
+        <div>
+          <label for="metricSel">Metric</label>
+          <select id="metricSel">
+            <option value="tps" selected>Transactions/sec (TPS)</option>
+            <option value="qps">Queries/sec (QPS)</option>
+          </select>
+
+          <label for="xSel">X axis</label>
+          <select id="xSel">
+            <option value="threads" selected>Threads</option>
+            <option value="mem_gb">Memory (GB)</option>
+          </select>
+
+          <label for="threadsAnchor">When X=Memory, use Threads =</label>
+          <select id="threadsAnchor"></select>
+
+          <label for="memAnchor">When X=Threads, use Memory =</label>
+          <select id="memAnchor"></select>
+        </div>
+      </div>
+
+      <div class="btnrow">
+        <button id="allServersBtn">Select all servers</button>
+        <button id="allMemsBtn">Select all memory</button>
+        <button id="resetBtn">Reset</button>
+      </div>
+
+      <div class="hint">
+        • <b>X=Threads</b>: overlays selected servers at selected memory values (or anchor memory).<br/>
+        • <b>X=Memory</b>: overlays selected servers at the anchor thread count.<br/>
+        Missing points are omitted automatically.
+      </div>
+    </div>
+
+    <div class="card">
+      <div id="chart"></div>
+      <div style="margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+        <div>
+          <div style="font-family: system-ui, sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 6px; color: #333;">
+            Percona pt-summary System Info
+            <a href="{{BASE_URL}}/pt-summary-full.txt" target="_blank" rel="noopener" style="margin-left: 10px; font-size: 12px; font-weight: 600; text-decoration: none; background: #1a73e8; color: #fff; padding: 3px 10px; border-radius: 5px;">&#8599; Open full pt-summary</a>
+          </div>
+          <table style="border-collapse: collapse; width: 100%; font-family: monospace; font-size: 13px;">
+            <thead>
+              <tr style="background: #e8eaf0;">
+                <th style="border: 1px solid #ccc; padding: 5px 12px; text-align: left; color: #555;">Property</th>
+                <th style="border: 1px solid #ccc; padding: 5px 12px; text-align: left; color: #555;">Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Platform</td>     <td style="border: 1px solid #ccc; padding: 4px 12px;">Linux</td></tr>
+              <tr style="background:#fafafa;"><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Release</td>      <td style="border: 1px solid #ccc; padding: 4px 12px;">Ubuntu 24.04 LTS (noble)</td></tr>
+              <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Kernel</td>       <td style="border: 1px solid #ccc; padding: 4px 12px;">6.8.0-60-generic</td></tr>
+              <tr style="background:#fafafa;"><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Architecture</td> <td style="border: 1px solid #ccc; padding: 4px 12px;">CPU = 64-bit, OS = 64-bit</td></tr>
+              <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Processors</td>   <td style="border: 1px solid #ccc; padding: 4px 12px;">physical = 2, cores = 40, virtual = 80, hyperthreading = yes</td></tr>
+              <tr style="background:#fafafa;"><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Models</td>       <td style="border: 1px solid #ccc; padding: 4px 12px;">80x Intel(R) Xeon(R) Gold 6230 CPU @ 2.10GHz</td></tr>
+              <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Memory Total</td> <td style="border: 1px solid #ccc; padding: 4px 12px;">187.5G</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div style="font-family: system-ui, sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 6px; color: #333;">Sysbench Run Configuration</div>
+          <table style="border-collapse: collapse; width: 100%; font-family: monospace; font-size: 13px;">
+            <thead>
+              <tr style="background: #e8eaf0;">
+                <th style="border: 1px solid #ccc; padding: 5px 12px; text-align: left; color: #555;">Parameter</th>
+                <th style="border: 1px solid #ccc; padding: 5px 12px; text-align: left; color: #555;">Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Test Type</td>      <td style="border: 1px solid #ccc; padding: 4px 12px;">{{TEST_TYPE}}</td></tr>
+              <tr style="background:#fafafa;"><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Tables</td>         <td style="border: 1px solid #ccc; padding: 4px 12px;">20</td></tr>
+              <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Rows per table</td> <td style="border: 1px solid #ccc; padding: 4px 12px;">5,000,000</td></tr>
+              <tr style="background:#fafafa;"><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Test duration</td>  <td style="border: 1px solid #ccc; padding: 4px 12px;">900s (15 min)</td></tr>
+              <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Scripts and data files</td> <td style="border: 1px solid #ccc; padding: 4px 12px;"><a href="https://github.com/Percona-Lab-results/2026-interactive-metrics/tree/test-data" target="_blank" rel="noopener" style="font-family: system-ui, sans-serif; font-size: 12px; font-weight: 600; text-decoration: none; background: #1a73e8; color: #fff; padding: 3px 10px; border-radius: 5px;">&#8599; GitHub</a></td></tr>
+              <tr style="background:#fafafa;"><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Schema</td> <td style="border: 1px solid #ccc; padding: 4px 12px;"><a href="https://percona-lab-results.github.io/2026-interactive-metrics/schema_dump.sql" download="schema_dump.sql" style="font-family: system-ui, sans-serif; font-size: 12px; font-weight: 600; text-decoration: none; background: #1a73e8; color: #fff; padding: 3px 10px; border-radius: 5px;">&#8595; Download SQL</a></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+{{DATA_BLOCK}}
+
+function el(id) { return document.getElementById(id); }
+
+function fillOptions(selectEl, values, formatter=(v)=>v) {
+  selectEl.innerHTML = "";
+  values.forEach(v => {
+    const opt = document.createElement("option");
+    opt.value = v;
+    opt.textContent = formatter(v);
+    selectEl.appendChild(opt);
+  });
+}
+
+function getSelectedValues(selectEl) {
+  return Array.from(selectEl.selectedOptions).map(o => o.value);
+}
+
+function setSelected(selectEl, predicate) {
+  Array.from(selectEl.options).forEach(opt => {
+    opt.selected = predicate(opt.value);
+  });
+}
+
+function numeric(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function buildTraces() {
+  const metric = el("metricSel").value;
+  const xMode = el("xSel").value;
+
+  const selectedServers = getSelectedValues(el("serverSel"));
+  const selectedMems = getSelectedValues(el("memSel")).map(numeric).filter(v => v !== null);
+
+  const anchorThreads = numeric(el("threadsAnchor").value);
+  const anchorMem = numeric(el("memAnchor").value);
+
+  const servers = selectedServers.length ? selectedServers : [SERVERS[0]];
+  const mems = selectedMems.length ? selectedMems : [anchorMem];
+
+  const traces = [];
+
+  if (xMode === "threads") {
+    servers.forEach(server => {
+      mems.forEach(mem => {
+        const pts = DATA
+          .filter(r => r.server === server && r.mem_gb === mem && r[metric] !== null)
+          .sort((a,b)=>a.threads-b.threads);
+
+        if (!pts.length) return;
+
+        traces.push({
+          type: "scatter",
+          mode: "lines+markers",
+          name: `${server} | ${mem}G`,
+          x: pts.map(p=>p.threads),
+          y: pts.map(p=>p[metric]),
+          customdata: pts.map(p=>({server: p.server, mem_gb: p.mem_gb, threads: p.threads, tps: p.tps, qps: p.qps})),
+          marker: { size: 10 },
+          hovertemplate:
+            '<b>%{customdata.server}</b><br>' +
+            'Memory: %{customdata.mem_gb}G<br>' +
+            'Threads: %{customdata.threads}<br>' +
+            'TPS: %{customdata.tps:,.0f}<br>' +
+            'QPS: %{customdata.qps:,.0f}' +
+            '<extra></extra>',
+        });
+      });
+    });
+  } else {
+    servers.forEach(server => {
+      const pts = DATA
+        .filter(r => r.server === server && r.threads === anchorThreads && r[metric] !== null)
+        .sort((a,b)=>a.mem_gb-b.mem_gb);
+
+      if (!pts.length) return;
+
+      traces.push({
+        type: "scatter",
+        mode: "lines+markers",
+        name: `${server} | ${anchorThreads} threads`,
+        x: pts.map(p=>p.mem_gb),
+        y: pts.map(p=>p[metric]),
+        customdata: pts.map(p=>({server: p.server, mem_gb: p.mem_gb, threads: p.threads, tps: p.tps, qps: p.qps})),
+        marker: { size: 10 },
+        hovertemplate:
+          '<b>%{customdata.server}</b><br>' +
+          'Memory: %{customdata.mem_gb}G<br>' +
+          'Threads: %{customdata.threads}<br>' +
+          'TPS: %{customdata.tps:,.0f}<br>' +
+          'QPS: %{customdata.qps:,.0f}' +
+          '<extra></extra>',
+      });
+    });
+  }
+
+  return traces;
+}
+
+function layoutForMode() {
+  const metric = el("metricSel").value;
+  const xMode = el("xSel").value;
+  const yTitle = (metric === "tps") ? "Transactions per second (TPS)" : "Queries per second (QPS)";
+  const xTitle = (xMode === "threads") ? "Threads" : "Memory (GB)";
+  const title = (xMode === "threads")
+    ? `Sysbench: ${yTitle} vs Threads`
+    : `Sysbench: ${yTitle} vs Memory`;
+
+  return {
+    title: { text: title },
+    xaxis: {
+      title: xTitle,
+      type: (xMode === "threads") ? "log" : "linear",
+      tickvals: (xMode === "threads") ? [1,4,16,32,64,128,256,512] : undefined,
+      ticktext: (xMode === "threads") ? ["1","4","16","32","64","128","256","512"] : undefined,
+    },
+    yaxis: { title: yTitle, rangemode: 'tozero' },
+    margin: { l: 70, r: 20, t: 60, b: 60 },
+    hovermode: "closest",
+    hoverlabel: {
+      font: { size: 16 },
+      namelength: -1,
+    },
+  };
+}
+
+const BASE_URL = "{{BASE_URL}}";
+const CUSTOM_BASE = "https://percona-lab-results.github.io/2026-interactive-metrics-970/";
+const LOG_EXTS = ["sysbench.txt", "iostat.txt", "mpstat.txt", "vmstat.txt"];
+
+function serverToPath(server) {
+  const idx = server.indexOf(' ');
+  return server.slice(0, idx) + '/' + server.slice(idx + 1);
+}
+
+function buildFileBase(mem_gb, threads) {
+  return `Tier${mem_gb}G_RW_${threads}th`;
+}
+
+function getBaseUrlForServer(server) {
+  if (server.startsWith("custom")) {
+    return CUSTOM_BASE + BASE_URL;
+  }
+  return BASE_URL;
+}
+
+function makeListItem(ext, fname, url, isExtra) {
+  const li = document.createElement('li');
+  if (isExtra) li.classList.add('custom-extra');
+  li.innerHTML = `
+    <span class="ext">.${ext}</span>
+    <span class="fname">${fname}</span>
+    <span class="actions">
+      <a class="btn-dl" href="${url}" download="${fname}" title="Download">&#8595; Download</a>
+      <a class="btn-open" href="${url}" target="_blank" rel="noopener" title="Open in new tab">&#8599; Open</a>
+    </span>`;
+  return li;
+}
+
+function showDownloadModal(server, mem_gb, threads, tps, qps) {
+  const path = serverToPath(server);
+  const fileBase = buildFileBase(mem_gb, threads);
+  const baseUrl = getBaseUrlForServer(server);
+
+  document.getElementById('dlTitle').textContent = server;
+  document.getElementById('dlSubtitle').textContent =
+    `Memory: ${mem_gb}G  ·  Threads: ${threads}  ·  TPS: ${tps.toLocaleString()}  ·  QPS: ${qps.toLocaleString()}`;
+  const list = document.getElementById('dlLinks');
+  list.innerHTML = '';
+
+  // Standard log files
+  LOG_EXTS.forEach(ext => {
+    const fname = `${fileBase}.${ext}`;
+    const url = `${baseUrl}/${path}/${fname}`;
+    list.appendChild(makeListItem(ext, fname, url, false));
+  });
+
+  // Per-tier files
+  ["status.txt", "vars.txt", "cnf.txt", "pt-mysql-summary.txt"].forEach(ext => {
+    const fname = ext === "pt-mysql-summary.txt" ? `Tier${mem_gb}G-${ext}` : `Tier${mem_gb}G.${ext}`;
+    const url = `${baseUrl}/${path}/${fname}`;
+    list.appendChild(makeListItem(ext, fname, url, false));
+  });
+
+  // custom-mariadb extra files
+  if (server.startsWith("custom")) {
+    const errlogFname = `Tier${mem_gb}G.errlog.txt`;
+    const errlogUrl = `${baseUrl}/${path}/${errlogFname}`;
+    list.appendChild(makeListItem("errlog.txt", errlogFname, errlogUrl, true));
+
+    const idbhistFname = `${fileBase}.idbhist.txt`;
+    const idbhistUrl = `${baseUrl}/${path}/${idbhistFname}`;
+    list.appendChild(makeListItem("idbhist.txt", idbhistFname, idbhistUrl, true));
+  }
+
+  document.getElementById('dlOverlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('dlOverlay').classList.remove('open');
+}
+
+function attachPlotlyClick() {
+  const chartDiv = document.getElementById('chart');
+  chartDiv.removeAllListeners('plotly_click');
+  chartDiv.on('plotly_click', function(eventData) {
+    if (!eventData || !eventData.points || !eventData.points.length) return;
+    const pt = eventData.points[0];
+    const d = pt.customdata;
+    if (!d) return;
+    showDownloadModal(d.server, d.mem_gb, d.threads, d.tps, d.qps);
+  });
+}
+
+function render() {
+  Plotly.react("chart", buildTraces(), layoutForMode(), {responsive: true})
+    .then(attachPlotlyClick);
+}
+
+function init() {
+  fillOptions(el("serverSel"), SERVERS);
+  fillOptions(el("memSel"), MEMS, (v)=>`${v}G`);
+  fillOptions(el("threadsAnchor"), THREADS);
+  fillOptions(el("memAnchor"), MEMS);
+
+  const defaultServers = SERVERS.filter(s =>
+    s.startsWith("custom") || s.startsWith("mariadb 12") || s.startsWith("mysql 8.4") || s.startsWith("mysql 9.6") || s.startsWith("percona-server 8.4")
+  );
+  setSelected(el("serverSel"), v => defaultServers.includes(v));
+  setSelected(el("memSel"), v => Number(v) === 12);
+
+  el("threadsAnchor").value = 64;
+  el("memAnchor").value = 12;
+
+  ["serverSel","memSel","metricSel","xSel","threadsAnchor","memAnchor"].forEach(id => {
+    el(id).addEventListener("change", render);
+  });
+
+  el("allServersBtn").addEventListener("click", () => { setSelected(el("serverSel"), _ => true); render(); });
+  el("allMemsBtn").addEventListener("click", () => { setSelected(el("memSel"), _ => true); render(); });
+  el("resetBtn").addEventListener("click", () => {
+    setSelected(el("serverSel"), v => defaultServers.includes(v));
+    setSelected(el("memSel"), v => Number(v) === 12);
+    el("metricSel").value = "tps";
+    el("xSel").value = "threads";
+    el("threadsAnchor").value = 64;
+    el("memAnchor").value = 12;
+    render();
+  });
+
+  render();
+}
+
+window.addEventListener('load', function() { loadPlotly(init); });
+</script>
+
+<!-- Download modal -->
+<div id="dlOverlay">
+  <div id="dlModal">
+    <button id="dlClose" title="Close">&#x2715;</button>
+    <h3 id="dlTitle">Download log files</h3>
+    <div id="dlSubtitle" class="subtitle"></div>
+    <ul id="dlLinks" class="dl-list"></ul>
+  </div>
+</div>
+
+<script>
+document.getElementById('dlClose').addEventListener('click', closeModal);
+document.getElementById('dlOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeModal();
+});
+</script>
+</body>
+</html>
