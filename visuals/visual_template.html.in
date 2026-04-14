@@ -452,7 +452,7 @@ function init() {
   );
   setSelected(el("serverSel"), v => defaultServers.includes(v));
   setSelected(el("memSel"), v => Number(v) === 12);
-  setSelected(el("concurSel"), v => Number(v) === CONCURS[0]);
+  setSelected(el("concurSel"), _ => true);
 
   el("threadsAnchor").value = 64;
   el("memAnchor").value = 12;
@@ -468,7 +468,7 @@ function init() {
   el("resetBtn").addEventListener("click", () => {
     setSelected(el("serverSel"), v => defaultServers.includes(v));
     setSelected(el("memSel"), v => Number(v) === 12);
-    setSelected(el("concurSel"), v => Number(v) === CONCURS[0]);
+    setSelected(el("concurSel"), _ => true);
     el("metricSel").value = "tps";
     el("xSel").value = "threads";
     el("threadsAnchor").value = 64;
