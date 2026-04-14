@@ -165,7 +165,7 @@
         <div>
           <div style="font-family: system-ui, sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 6px; color: #333;">
             Percona pt-summary System Info
-            <a href="{{BASE_URL}}/pt-summary-full.txt" target="_blank" rel="noopener" style="margin-left: 10px; font-size: 12px; font-weight: 600; text-decoration: none; background: #1a73e8; color: #fff; padding: 3px 10px; border-radius: 5px;">&#8599; Open full pt-summary</a>
+            <a href="benchmark_logs_custom/pt-summary-full.txt" target="_blank" rel="noopener" style="margin-left: 10px; font-size: 12px; font-weight: 600; text-decoration: none; background: #1a73e8; color: #fff; padding: 3px 10px; border-radius: 5px;">&#8599; Open full pt-summary</a>
           </div>
           <table style="border-collapse: collapse; width: 100%; font-family: monospace; font-size: 13px;">
             <thead>
@@ -195,7 +195,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Test Type</td>      <td style="border: 1px solid #ccc; padding: 4px 12px;">{{TEST_TYPE}}</td></tr>
+              <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Test Type</td>      <td style="border: 1px solid #ccc; padding: 4px 12px;">OLTP Read-Write Variable Concurrency Comparison</td></tr>
               <tr style="background:#fafafa;"><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Tables</td>         <td style="border: 1px solid #ccc; padding: 4px 12px;">20</td></tr>
               <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Rows per table</td> <td style="border: 1px solid #ccc; padding: 4px 12px;">5,000,000</td></tr>
               <tr style="background:#fafafa;"><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Test duration</td>  <td style="border: 1px solid #ccc; padding: 4px 12px;">900s (15 min)</td></tr>
@@ -209,7 +209,11 @@
   </div>
 
 <script>
-{{DATA_BLOCK}}
+const DATA = [{"server":"percona-server 8.4.8-8","mem_gb": 2,"concurrency": 8,"threads":128,"tps":  947.23,"qps": 18944.55},{"server":"percona-server 8.4.8-8","mem_gb": 2,"concurrency": 8,"threads":256,"tps":  949.68,"qps": 18993.63},{"server":"percona-server 8.4.8-8","mem_gb": 2,"concurrency": 8,"threads":512,"tps": 1020.96,"qps": 20419.24},{"server":"percona-server 8.4.8-8","mem_gb": 2,"concurrency":16,"threads":128,"tps": 1920.48,"qps": 38409.60},{"server":"percona-server 8.4.8-8","mem_gb": 2,"concurrency":16,"threads":256,"tps": 1891.77,"qps": 37835.49},{"server":"percona-server 8.4.8-8","mem_gb": 2,"concurrency":16,"threads":512,"tps": 1578.22,"qps": 31564.47},{"server":"percona-server 8.4.8-8","mem_gb": 2,"concurrency":32,"threads":128,"tps": 2440.20,"qps": 48803.96},{"server":"percona-server 8.4.8-8","mem_gb": 2,"concurrency":32,"threads":256,"tps": 2315.96,"qps": 46319.18},{"server":"percona-server 8.4.8-8","mem_gb": 2,"concurrency":32,"threads":512,"tps": 2198.45,"qps": 43969.08},{"server":"percona-server 8.4.8-8","mem_gb": 2,"concurrency":64,"threads":128,"tps": 1935.38,"qps": 38707.58},{"server":"percona-server 8.4.8-8","mem_gb": 2,"concurrency":64,"threads":256,"tps": 2075.00,"qps": 41499.95},{"server":"percona-server 8.4.8-8","mem_gb": 2,"concurrency":64,"threads":512,"tps": 2202.80,"qps": 44055.95},{"server":"percona-server 8.4.8-8","mem_gb":12,"concurrency": 8,"threads":128,"tps": 2094.80,"qps": 41895.93},{"server":"percona-server 8.4.8-8","mem_gb":12,"concurrency": 8,"threads":256,"tps": 2102.27,"qps": 42045.48},{"server":"percona-server 8.4.8-8","mem_gb":12,"concurrency": 8,"threads":512,"tps": 1659.55,"qps": 33191.09},{"server":"percona-server 8.4.8-8","mem_gb":12,"concurrency":16,"threads":128,"tps": 3731.39,"qps": 74627.71},{"server":"percona-server 8.4.8-8","mem_gb":12,"concurrency":16,"threads":256,"tps": 3680.07,"qps": 73601.32},{"server":"percona-server 8.4.8-8","mem_gb":12,"concurrency":16,"threads":512,"tps": 2906.39,"qps": 58127.77},{"server":"percona-server 8.4.8-8","mem_gb":12,"concurrency":32,"threads":128,"tps": 5604.70,"qps":112093.94},{"server":"percona-server 8.4.8-8","mem_gb":12,"concurrency":32,"threads":256,"tps": 5541.41,"qps":110828.20},{"server":"percona-server 8.4.8-8","mem_gb":12,"concurrency":32,"threads":512,"tps": 5290.48,"qps":105809.59},{"server":"percona-server 8.4.8-8","mem_gb":12,"concurrency":64,"threads":128,"tps": 6427.28,"qps":128545.63},{"server":"percona-server 8.4.8-8","mem_gb":12,"concurrency":64,"threads":256,"tps": 6448.86,"qps":128977.27},{"server":"percona-server 8.4.8-8","mem_gb":12,"concurrency":64,"threads":512,"tps": 6438.97,"qps":128779.42},{"server":"percona-server 8.4.8-8","mem_gb":32,"concurrency": 8,"threads":128,"tps": 5151.72,"qps":103034.49},{"server":"percona-server 8.4.8-8","mem_gb":32,"concurrency": 8,"threads":256,"tps": 4865.67,"qps": 97313.50},{"server":"percona-server 8.4.8-8","mem_gb":32,"concurrency": 8,"threads":512,"tps": 3332.56,"qps": 66651.22},{"server":"percona-server 8.4.8-8","mem_gb":32,"concurrency":16,"threads":128,"tps": 9658.20,"qps":193164.00},{"server":"percona-server 8.4.8-8","mem_gb":32,"concurrency":16,"threads":256,"tps": 9566.14,"qps":191322.71},{"server":"percona-server 8.4.8-8","mem_gb":32,"concurrency":16,"threads":512,"tps": 9514.91,"qps":190298.15},{"server":"percona-server 8.4.8-8","mem_gb":32,"concurrency":32,"threads":128,"tps":13166.24,"qps":263324.81},{"server":"percona-server 8.4.8-8","mem_gb":32,"concurrency":32,"threads":256,"tps":13707.57,"qps":274151.44},{"server":"percona-server 8.4.8-8","mem_gb":32,"concurrency":32,"threads":512,"tps":12750.17,"qps":255003.35},{"server":"percona-server 8.4.8-8","mem_gb":32,"concurrency":64,"threads":128,"tps":13141.86,"qps":262837.25},{"server":"percona-server 8.4.8-8","mem_gb":32,"concurrency":64,"threads":256,"tps":13548.65,"qps":270972.90},{"server":"percona-server 8.4.8-8","mem_gb":32,"concurrency":64,"threads":512,"tps":13406.33,"qps":268126.62}];
+const SERVERS = ["percona-server 8.4.8-8"];
+const MEMS = [2, 12, 32];
+const CONCURS = [8, 16, 32, 64];
+const THREADS = [128, 256, 512];
 
 function el(id) { return document.getElementById(id); }
 
@@ -333,8 +337,8 @@ function layoutForMode() {
     xaxis: {
       title: xTitle,
       type: (xMode === "threads") ? "log" : "linear",
-      tickvals: (xMode === "threads") ? [1,4,16,32,64,128,256,512] : undefined,
-      ticktext: (xMode === "threads") ? ["1","4","16","32","64","128","256","512"] : undefined,
+      tickvals: (xMode === "threads") ? [128,256,512] : undefined,
+      ticktext: (xMode === "threads") ? ["128","256","512"] : undefined,
     },
     yaxis: { title: yTitle, rangemode: 'tozero' },
     margin: { l: 70, r: 20, t: 60, b: 60 },
@@ -346,7 +350,7 @@ function layoutForMode() {
   };
 }
 
-const BASE_URL = "{{BASE_URL}}";
+const BASE_URL = "benchmark_logs_custom";
 const CUSTOM_BASE = "https://percona-lab-results.github.io/2026-interactive-metrics-970/";
 const LOG_EXTS = ["sysbench.txt", "iostat.txt", "mpstat.txt", "vmstat.txt"];
 

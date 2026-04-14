@@ -39,7 +39,7 @@ if (length(files) == 0) {
 cat(sprintf("Found %d file(s)\n", length(files)))
 
 # ── 2. Parse each file into a data row ────────────────────────────────────────
-# Expected path structure: benchmark_logs/{db_type}/{version}/Tier{N}G_RW_{T}th.sysbench.txt
+# Expected path structure: benchmark_logs/{db_type}/{version}/Tier{N}G_Concur{C}_{T}th.sysbench.txt
 parse_file <- function(path) {
   parts    <- strsplit(path, "/", fixed = TRUE)[[1]]
   # parts: [base_dir, db_type, version, filename]
@@ -52,17 +52,19 @@ parse_file <- function(path) {
   version  <- parts[length(parts) - 1]
   filename <- parts[length(parts)]
 
-  # Extract memory (e.g. 12 from Tier12G_RW_64th.sysbench.txt)
-  mem_match <- regmatches(filename, regexpr("Tier(\\d+)G", filename, perl = TRUE))
-  thr_match <- regmatches(filename, regexpr("_(\\d+)th\\.", filename, perl = TRUE))
+  # Extract memory (e.g. 12 from Tier12G_Concur10_64th.sysbench.txt)
+  mem_match    <- regmatches(filename, regexpr("Tier(\\d+)G", filename, perl = TRUE))
+  concur_match <- regmatches(filename, regexpr("Concur(\\d+)", filename, perl = TRUE))
+  thr_match    <- regmatches(filename, regexpr("_(\\d+)th\\.", filename, perl = TRUE))
 
-  if (length(mem_match) == 0 || length(thr_match) == 0) {
-    warning(sprintf("Cannot parse mem/threads from filename: %s", filename))
+  if (length(mem_match) == 0 || length(concur_match) == 0 || length(thr_match) == 0) {
+    warning(sprintf("Cannot parse mem/concurrency/threads from filename: %s", filename))
     return(NULL)
   }
 
-  mem_gb  <- as.integer(sub("Tier(\\d+)G",  "\\1", mem_match))
-  threads <- as.integer(sub("_(\\d+)th\\.", "\\1", thr_match))
+  mem_gb      <- as.integer(sub("Tier(\\d+)G",  "\\1", mem_match))
+  concurrency <- as.integer(sub("Concur(\\d+)", "\\1", concur_match))
+  threads     <- as.integer(sub("_(\\d+)th\\.", "\\1", thr_match))
   server  <- paste(db_type, version)
 
   # Read file and extract TPS / QPS
@@ -84,11 +86,12 @@ parse_file <- function(path) {
   }
 
   data.frame(
-    server  = server,
-    mem_gb  = mem_gb,
-    threads = threads,
-    tps     = tps,
-    qps     = qps,
+    server      = server,
+    mem_gb      = mem_gb,
+    concurrency = concurrency,
+    threads     = threads,
+    tps         = tps,
+    qps         = qps,
     stringsAsFactors = FALSE
   )
 }
@@ -115,23 +118,25 @@ to_js_array <- function(x) {
 
 to_json_rows <- function(df) {
   parts <- apply(df, 1, function(r) {
-    sprintf('{"server":"%s","mem_gb":%s,"threads":%s,"tps":%s,"qps":%s}',
-            r["server"], r["mem_gb"], r["threads"], r["tps"], r["qps"])
+    sprintf('{"server":"%s","mem_gb":%s,"concurrency":%s,"threads":%s,"tps":%s,"qps":%s}',
+            r["server"], r["mem_gb"], r["concurrency"], r["threads"], r["tps"], r["qps"])
   })
   paste0("[", paste(parts, collapse = ","), "]")
 }
 
 servers_sorted <- sort(unique(data$server))
 mems_sorted    <- sort(unique(data$mem_gb))
+concurs_sorted <- sort(unique(data$concurrency))
 threads_sorted <- sort(unique(data$threads))
 
 # Order data rows consistently
-data <- data[order(data$server, data$mem_gb, data$threads), ]
+data <- data[order(data$server, data$mem_gb, data$concurrency, data$threads), ]
 
 data_block <- paste0(
   "const DATA = ", to_json_rows(data), ";\n",
   "const SERVERS = ", to_js_array(servers_sorted), ";\n",
   "const MEMS = ", to_js_array(mems_sorted), ";\n",
+  "const CONCURS = ", to_js_array(concurs_sorted), ";\n",
   "const THREADS = ", to_js_array(threads_sorted), ";"
 )
 
@@ -176,7 +181,8 @@ output_html <- gsub(
 
 writeLines(output_html, output_file, useBytes = TRUE)
 cat(sprintf("Done. Report written to: %s\n", output_file))
-cat(sprintf("  Servers : %d\n", length(servers_sorted)))
-cat(sprintf("  Memories: %s\n", paste(mems_sorted, collapse = ", ")))
-cat(sprintf("  Threads : %s\n", paste(threads_sorted, collapse = ", ")))
-cat(sprintf("  Records : %d\n", nrow(data)))
+cat(sprintf("  Servers     : %d\n", length(servers_sorted)))
+cat(sprintf("  Memories    : %s\n", paste(mems_sorted, collapse = ", ")))
+cat(sprintf("  Concurrency : %s\n", paste(concurs_sorted, collapse = ", ")))
+cat(sprintf("  Threads     : %s\n", paste(threads_sorted, collapse = ", ")))
+cat(sprintf("  Records     : %d\n", nrow(data)))
