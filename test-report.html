@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>InnoDB Thread Concurrency Performance Analysis Report</title>
+<style>
+body { font-family: Arial, sans-serif; width: 100%; max-width: 100%; margin: 0; padding: 0.4in; line-height: 1.3; box-sizing: border-box; }
+h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; margin-bottom: 10px; }
+h2 { color: #34495e; border-bottom: 2px solid #95a5a6; padding-bottom: 8px; margin-top: 30px; }
+h3 { color: #555; margin-top: 25px; }
+h4 { color: #666; margin-top: 20px; }
+table { border-collapse: collapse; width: 100% !important; margin: 20px 0; table-layout: fixed; }
+th, td { border: 1px solid #333; padding: 10px 12px; text-align: left; vertical-align: top; word-wrap: break-word; }
+th { background-color: #3498db; color: white; font-weight: bold; text-align: center; }
+tbody tr:nth-child(even) { background-color: #f9f9f9; }
+tbody tr:nth-child(odd) { background-color: #ffffff; }
+code { background-color: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background-color: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; line-height: 1.2; margin: 10px 0 0 0; }
+pre code { background: none; padding: 0; line-height: 1.2; }
+strong { color: #2c3e50; }
+a { color: #3498db; text-decoration: none; }
+a:hover { text-decoration: underline; }
+img { max-width: 100%; height: auto; margin: 10px 0; border: 1px solid #ddd; display: block; }
+ul, ol { margin: 15px 0; padding-left: 30px; }
+li { margin: 8px 0; }
+</style>
+</head>
+<body>
+<h1>InnoDB Thread Concurrency Performance Analysis Report</h1>
+<h2>1. Interactive Graphs</h2>
+<p>An interactive web-based visualization of all benchmark results is available online:</p>
+<br>
+<p><strong><a href="https://percona-lab-results.github.io/2026-interactive-concurrency-metrics/sysbench_oltp_rw_comparison_concur.html">View Interactive Performance Graphs</a></strong></p>
+<br>
+<p>This interactive tool allows you to:</p>
+<ul>
+<li>Compare performance across different innodb_thread_concurrency settings (8, 16, 32, 64)</li>
+<li>Filter by memory tier (2GB, 12GB, 32GB)</li>
+<li>Select specific thread counts for detailed analysis</li>
+<li>View raw benchmark data and configuration files</li>
+<li>Explore TPS metrics dynamically</li>
+</ul>
+<h2>2. Benchmark Overview</h2>
+<h3>2.1. Purpose and Scope</h3>
+<h3>Purpose</h3>
+<p>The primary purpose of this benchmark study is to evaluate how the <code>innodb_thread_concurrency</code> parameter affects database performance under OLTP (Online Transaction Processing) read-write workloads on Percona Server 8.4.8. This investigation aims to provide empirical data on the performance characteristics of different concurrency limit configurations across various workload conditions.</p>
+<h3>Target Questions</h3>
+<p>This analysis seeks to answer the following key questions:</p>
+<br>
+<p>1. <strong>Impact of Concurrency Limits on Throughput</strong></p>
+<p>   - How does setting <code>innodb_thread_concurrency</code> to specific values (8, 16, 32, 64) affect transaction throughput?</p>
+<p>   - Does limiting internal InnoDB thread concurrency improve or degrade performance compared to higher limits?</p>
+<p>   - At what client thread counts do concurrency limits begin to matter?</p>
+<br>
+<p>2. <strong>Optimal Concurrency Settings by Client Load</strong></p>
+<p>   - Which <code>innodb_thread_concurrency</code> value provides the best performance at low client concurrency (128 threads)?</p>
+<p>   - How do optimal settings change as client concurrency increases (256, 512 threads)?</p>
+<p>   - Is there a universal "best" setting or does it vary by workload intensity?</p>
+<br>
+<p>3. <strong>Effect of InnoDB Buffer Pool Size</strong></p>
+<p>   - How does the interaction between <code>innodb_thread_concurrency</code> and buffer pool size (2GB, 12GB, 32GB) affect throughput?</p>
+<p>   - Do I/O-bound workloads (2GB buffer) benefit more from concurrency limits than memory-resident workloads (32GB buffer)?</p>
+<p>   - Does buffer pool size change which concurrency setting is optimal?</p>
+<br>
+<p>4. <strong>Scalability Characteristics</strong></p>
+<p>   - How does performance scale as client thread count increases from 128 to 512 threads?</p>
+<p>   - At which concurrency settings does performance plateau or degrade?</p>
+<p>   - Do lower concurrency limits prevent performance degradation at high client counts?</p>
+<h3>Scope</h3>
+<ul>
+<li><strong>Database System</strong>: Percona Server 8.4.8-8</li>
+<li><strong>Test Parameter</strong>: <code>innodb_thread_concurrency</code> values of 8, 16, 32, 64</li>
+<li><strong>Workload Type</strong>: Sysbench OLTP Read-Write</li>
+<li><strong>Client Concurrency Levels</strong>: 128, 256, 512 threads</li>
+<li><strong>Memory Tiers</strong>: 2GB, 12GB, 32GB <code>innodb_buffer_pool_size</code></li>
+<li><strong>Dataset Size</strong>: 24GB (20 tables × 5M rows)</li>
+<li><strong>Test Duration</strong>: 900 seconds (15 minutes) per configuration</li>
+</ul>
+<h3>2.2. Configuration Under Test</h3>
+<p>The <code>innodb_thread_concurrency</code> parameter limits how many threads can execute inside InnoDB simultaneously. Setting it to 0 (default) removes the limit.</p>
+<br>
+<table width="100%" border="1" cellpadding="1" cellspacing="0" style="width: 100% !important;">
+<thead><tr>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Configuration (innodb_thread_concurrency)</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Purpose</th>
+</tr></thead><tbody>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>Concur8</strong> (8)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">Very conservative limit (20% of physical cores)</td>
+</tr>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>Concur16</strong> (16)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">Conservative limit (40% of physical cores)</td>
+</tr>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>Concur32</strong> (32)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">Moderate limit (80% of physical cores)</td>
+</tr>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>Concur64</strong> (64)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">Liberal limit (160% of physical cores)</td>
+</tr>
+</tbody></table>
+<br>
+<p><strong>Hardware Context</strong>: The test system has 40 physical cores (80 threads with hyperthreading), making these settings range from highly restrictive to moderately permissive.</p>
+<h2>3. Key Findings</h2>
+<h3>3.1. Concurrency Limit Effectiveness by Workload Type</h3>
+<p>The performance impact of <code>innodb_thread_concurrency</code> settings varies dramatically based on workload I/O characteristics:</p>
+<br>
+<table width="100%" border="1" cellpadding="1" cellspacing="0" style="width: 100% !important;">
+<thead><tr>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Workload Type</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Buffer Pool & I/O Characteristic</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Best Concurrency Setting</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Highest Performance Gain vs Concur8</th>
+</tr></thead><tbody>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>I/O Bound</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">2GB - Heavy disk access (1:12 data:buffer ratio)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; "><strong>Concur32 or Concur64</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">+158%</td>
+</tr>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>Mixed</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">12GB - Partial buffering (1:2 data:buffer ratio)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; "><strong>Concur64</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">+288%</td>
+</tr>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>Memory Bound</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">32GB - Fully buffered</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; "><strong>Concur32 or Concur64</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">+302%</td>
+</tr>
+</tbody></table>
+<br>
+<p><strong>Critical Insight:</strong> Higher concurrency limits (32-64) consistently outperform lower limits (8-16) across all workload types.</p>
+<h3>3.2. Performance Impact at Different Client Loads</h3>
+<h4>2GB Buffer Pool (I/O-Bound)</h4>
+<table width="100%" border="1" cellpadding="1" cellspacing="0" style="width: 100% !important;">
+<thead><tr>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Client Threads</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Concur8</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Concur16</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Concur32</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Concur64</th>
+</tr></thead><tbody>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>128</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">947 TPS</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">1,920 TPS (+103%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; "><strong>2,440 TPS (+158%)</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">1,935 TPS (+104%)</td>
+</tr>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>256</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">950 TPS</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">1,892 TPS (+99%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; "><strong>2,316 TPS (+144%)</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">2,075 TPS (+118%)</td>
+</tr>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>512</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">1,021 TPS</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">1,578 TPS (+55%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">2,198 TPS (+115%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; "><strong>2,203 TPS (+116%)</strong></td>
+</tr>
+</tbody></table>
+<br>
+<p><strong>Key Observation:</strong> In I/O-bound scenarios (12G buffer pool), Concur32 and Concur64 provide 2-2.5x better throughput than Concur8.</p>
+<h4>12GB Buffer Pool (Mixed Workload)</h4>
+<table width="100%" border="1" cellpadding="1" cellspacing="0" style="width: 100% !important;">
+<thead><tr>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Client Threads</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Concur8</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Concur16</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Concur32</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Concur64</th>
+</tr></thead><tbody>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>128</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">2,095 TPS</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">3,731 TPS (+78%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">5,605 TPS (+168%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; "><strong>6,427 TPS (+207%)</strong></td>
+</tr>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>256</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">2,102 TPS</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">3,680 TPS (+75%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">5,541 TPS (+164%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; "><strong>6,449 TPS (+207%)</strong></td>
+</tr>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>512</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">1,660 TPS</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">2,906 TPS (+75%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">5,290 TPS (+219%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; "><strong>6,439 TPS (+288%)</strong></td>
+</tr>
+</tbody></table>
+<br>
+<p><strong>Key Observation:</strong> Mixed workloads (12G buffer pool) show the most dramatic performance differences between concurrency settings.</p>
+<h4>32GB Buffer Pool (Memory-Resident)</h4>
+<table width="100%" border="1" cellpadding="1" cellspacing="0" style="width: 100% !important;">
+<thead><tr>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Client Threads</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Concur8</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Concur16</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Concur32</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Concur64</th>
+</tr></thead><tbody>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>128</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">5,152 TPS</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">9,658 TPS (+87%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">13,166 TPS (+156%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; "><strong>13,142 TPS (+155%)</strong></td>
+</tr>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>256</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">4,866 TPS</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">9,566 TPS (+97%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; "><strong>13,708 TPS (+182%)</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">13,549 TPS (+178%)</td>
+</tr>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>512</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">3,333 TPS</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">9,515 TPS (+185%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">12,750 TPS (+283%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; "><strong>13,406 TPS (+302%)</strong></td>
+</tr>
+</tbody></table>
+<br>
+<p><strong>Key Observation:</strong> Memory-resident workloads (32G buffer pool) show the most extreme difference between highest and lowest performance levels.</p>
+<h3>3.3. Concurrency Setting Characteristics</h3>
+<p><strong>Concur8:</strong> Consistently worst performer. Creates severe serialization bottlenecks (35-75% below optimal). <strong>Avoid.</strong></p>
+<br>
+<p><strong>Concur16:</strong> Below optimal in all scenarios. Better than Concur8 (+55-185%) but still bottlenecks memory-resident workloads. <strong>Too conservative for most systems.</strong></p>
+<br>
+<p><strong>Concur32:</strong> Optimal or near-optimal in most scenarios. Matches physical core count. Minimal difference from Concur64. <strong>Safe default for most workloads.</strong></p>
+<br>
+<p><strong>Concur64:</strong> Best performance at high client loads (256-512 threads). Maintains consistency as load increases. Slight edge over Concur32 at extreme oversubscription. <strong>Best for high-concurrency workloads.</strong></p>
+<h3>3.4. Practical Deployment Recommendations</h3>
+<p><strong>When to Use Concur64 (High Limit) - ✅ Strongly Recommended:</strong></p>
+<ul>
+<li>High client concurrency (256+ concurrent connections)</li>
+<li>Memory-resident or mostly-cached workloads (buffer pool covers >50% of dataset)</li>
+<li>Systems with many CPU cores (40+)</li>
+<li>OLTP workloads with short transactions</li>
+<li>Environments prioritizing maximum throughput</li>
+</ul>
+<br>
+<p><strong>When to Use Concur32 (Moderate Limit) - ✅ Recommended:</strong></p>
+<ul>
+<li>Moderate client concurrency (128-256 connections)</li>
+<li>Mixed I/O workloads</li>
+<li>Systems with 20-40 CPU cores</li>
+<li>General-purpose OLTP applications</li>
+<li>When you want a conservative but performant setting</li>
+</ul>
+<br>
+<p><strong>When to Use Concur16 (Conservative Limit) - ⚠️ Use with Caution:</strong></p>
+<ul>
+<li>I/O-bound workloads with low client concurrency (<128 connections)</li>
+<li>Systems with limited CPU cores (<20)</li>
+<li>Workloads with high lock contention</li>
+<li>Legacy applications being migrated</li>
+<li>Testing scenarios where you want to limit resource usage</li>
+</ul>
+<br>
+<p><strong>When to Use Concur8 (Very Conservative Limit) - ❌ Not Recommended:</strong></p>
+<ul>
+<li>Concur8 consistently underperforms across all tested scenarios</li>
+<li>Creates artificial serialization that wastes available resources</li>
+<li>Only consider for extreme edge cases with severe lock contention issues</li>
+<li>For troubleshooting purposes to identify concurrency-related problems</li>
+</ul>
+<h3>3.5. Performance Scalability Analysis</h3>
+<p><strong>Scalability from 128 to 512 Threads:</strong></p>
+<br>
+<p><strong>Concur8:</strong></p>
+<ul>
+<li>2GB: 947 → 1,021 TPS (+8%) - Minimal scaling</li>
+<li>12GB: 2,095 → 1,660 TPS (-21%) - Performance degradation</li>
+<li>32GB: 5,152 → 3,333 TPS (-35%) - Severe degradation</li>
+</ul>
+<br>
+<p><strong>Concur64:</strong></p>
+<ul>
+<li>2GB: 1,935 → 2,203 TPS (+14%) - Positive scaling</li>
+<li>12GB: 6,427 → 6,439 TPS (0%) - Maintains performance</li>
+<li>32GB: 13,142 → 13,406 TPS (+2%) - Maintains high performance</li>
+</ul>
+<br>
+<p><strong>Critical Insight:</strong> Low limits (8-16) degrade under load, especially in memory-resident workloads. High limits (32-64) maintain or improve performance as client load increases.</p>
+<h2>4. Test Environment & Infrastructure</h2>
+<h3>4.1. Hardware Specification</h3>
+<h4>System Information</h4>
+<ul>
+<li><strong>Platform</strong>: Linux</li>
+<li><strong>Release</strong>: Ubuntu 24.04 LTS (noble)</li>
+<li><strong>Kernel</strong>: 6.8.0-60-generic</li>
+<li><strong>Architecture</strong>: CPU = 64-bit, OS = 64-bit</li>
+<li><strong>Virtualized</strong>: No virtualization detected</li>
+</ul>
+<h4>CPU</h4>
+<ul>
+<li><strong>Architecture</strong>: x86_64</li>
+<li><strong>CPU op-mode(s)</strong>: 32-bit, 64-bit</li>
+<li><strong>Byte Order</strong>: Little Endian</li>
+<li><strong>Processors</strong>: physical = 2, cores = 40, virtual = 80, hyperthreading = yes</li>
+<li><strong>Sockets</strong>: 2</li>
+<li><strong>Cores per socket</strong>: 20</li>
+<li><strong>Threads per core</strong>: 2</li>
+<li><strong>Model</strong>: 80x Intel(R) Xeon(R) Gold 6230 CPU @ 2.10GHz</li>
+<li><strong>Base Frequency</strong>: 2.10GHz</li>
+<li><strong>Max Frequency</strong>: 3.90GHz</li>
+<li><strong>Cache</strong>: 80x 28160 KB</li>
+</ul>
+<h4>NUMA</h4>
+<ul>
+<li><strong>NUMA Nodes</strong>: 2</li>
+<li><strong>Node 0</strong>: 95288 MB (CPUs: 0-19, 40-59)</li>
+<li><strong>Node 1</strong>: 96748 MB (CPUs: 20-39, 60-79)</li>
+</ul>
+<h4>Memory</h4>
+<ul>
+<li><strong>Total Memory</strong>: 187.5G</li>
+<li><strong>Swap Size</strong>: 8.0G</li>
+</ul>
+<h4>Storage Configuration</h4>
+<p><strong>Primary Storage (SDA - System Disk)</strong></p>
+<ul>
+<li><strong>Device</strong>: /dev/sda</li>
+<li><strong>Total Size</strong>: 894.3 GB</li>
+</ul>
+<br>
+<p><strong>Secondary Storage (NVMe - Data Disk)</strong></p>
+<ul>
+<li><strong>Device</strong>: /dev/nvme0n1</li>
+<li><strong>Total Size</strong>: 2.9 TB</li>
+<li><strong>Filesystem</strong>: ext4</li>
+</ul>
+<h3>4.2. Software Configuration</h3>
+<h4>Operating System</h4>
+<ul>
+<li><strong>Distribution</strong>: Ubuntu 24.04 LTS (noble)</li>
+<li><strong>Kernel</strong>: 6.8.0-60-generic</li>
+<li><strong>Architecture</strong>: 64-bit</li>
+</ul>
+<h4>Database Server</h4>
+<ul>
+<li><strong>Engine</strong>: Percona Server for MySQL</li>
+<li><strong>Version</strong>: 8.4.8-8</li>
+<li><strong>Deployment</strong>: Docker container with host networking (<code>--network host</code>)</li>
+</ul>
+<h4>Benchmark Tool</h4>
+<ul>
+<li><strong>Sysbench</strong>: Version 1.0.20</li>
+<li><strong>LuaJIT</strong>: 2.1.0-beta3 (system)</li>
+<li><strong>Test Script</strong>: OLTP Read-Write (built-in)</li>
+</ul>
+<h4>Telemetry Tools</h4>
+<p>System performance metrics were collected continuously during each benchmark run:</p>
+<br>
+<ul>
+<li><strong>iostat</strong>: I/O statistics monitoring</li>
+<li><strong>vmstat</strong>: Virtual memory and system statistics</li>
+<li><strong>mpstat</strong>: Multi-processor statistics</li>
+<li><strong>dstat</strong>: Combined system resource statistics</li>
+<li><strong>Sampling Interval</strong>: 1 second for all tools</li>
+<li><strong>Collection Period</strong>: Full duration of each 15-minute test run</li>
+</ul>
+<h3>4.3. Buffer Pool Tiers</h3>
+<p>With the database size of 24GB, three InnoDB buffer pool sizes were tested, each representing a distinct workload characteristic:</p>
+<br>
+<table width="100%" border="1" cellpadding="1" cellspacing="0" style="width: 100% !important;">
+<thead><tr>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Tier (innodb_buffer_pool_size)</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Workload Character</th>
+</tr></thead><tbody>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>2GB</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; "><strong>I/O bound</strong> — dataset substantially exceeds buffer pool (1:12 ratio); heavy read amplification</td>
+</tr>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>12GB</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; "><strong>Mixed</strong> — partial dataset fits in memory (1:2 ratio); realistic production scenario</td>
+</tr>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>32GB</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; "><strong>In-memory</strong> — full working set fits; CPU and locking are primary bottlenecks</td>
+</tr>
+</tbody></table>
+<br>
+<p>These tiers were selected to evaluate Percona Server performance across different memory pressure scenarios, from heavily disk-constrained (2GB) to fully memory-resident (32GB) workloads.</p>
+<h2>5. Database Configuration</h2>
+<p>Percona Server 8.4.8-8 was configured with production-grade settings optimized for OLTP workloads. The primary variable of interest was <code>innodb_thread_concurrency</code>, tested at values of 8, 16, 32, and 64.</p>
+<h3>5.1. General Settings</h3>
+<pre><code>
+performance_schema              = OFF
+skip-name-resolve               = ON
+max_connections                 = 2000
+max_connect_errors              = 1000000
+max_prepared_stmt_count         = 1000000
+</code></pre>
+<h3>5.2. Thread Concurrency Configuration</h3>
+<p>The <code>innodb_thread_concurrency</code> parameter was varied across test runs:</p>
+<br>
+<pre><code>
+innodb_thread_concurrency       = 8 | 16 | 32 | 64
+</code></pre>
+<p><strong>Note:</strong> This parameter controls the maximum number of threads that can be inside InnoDB code simultaneously. When this limit is reached, additional threads must wait before entering InnoDB.</p>
+<h3>5.3. InnoDB Buffer Pool</h3>
+<p>Buffer pool size varied by tier (see Section 4.3):</p>
+<pre><code>
+innodb_buffer_pool_size         = 2G | 12G | 32G
+</code></pre>
+<h3>5.4. InnoDB I/O Configuration</h3>
+<p>Optimized for NVMe storage with high concurrency:</p>
+<pre><code>
+innodb_io_capacity              = 10000
+innodb_io_capacity_max          = 20000
+innodb_read_io_threads          = 16
+innodb_write_io_threads         = 16
+innodb_use_native_aio           = ON
+</code></pre>
+<h3>5.5. InnoDB Durability & Logging</h3>
+<p>Full ACID compliance with transaction log optimization:</p>
+<pre><code>
+innodb_log_file_size            = 4G
+innodb_log_buffer_size          = 256M
+innodb_flush_log_at_trx_commit  = 1                 # full ACID
+innodb_doublewrite              = ON
+sync_binlog                     = 1
+</code></pre>
+<h3>5.6. Binary Logging</h3>
+<p>Enabled for production-realistic overhead measurement:</p>
+<pre><code>
+log_bin                         = /var/lib/mysql/mysql-bin
+binlog_format                   = ROW
+binlog_row_image                = MINIMAL
+binlog_cache_size               = 4M
+max_binlog_size                 = 512M
+</code></pre>
+<p><strong>Note:</strong> The complete configuration file is available in the benchmark logs directory as <code>TierXG.cnf.txt</code> for each tested configuration.</p>
+<h2>6. Benchmark Workload</h2>
+<h3>6.1. Warmup Protocol</h3>
+<p>Before each production benchmark run, the database underwent a two-phase warmup sequence to ensure consistent starting conditions:</p>
+<br>
+<table width="100%" border="1" cellpadding="1" cellspacing="0" style="width: 100% !important;">
+<thead><tr>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Phase</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Duration</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Purpose</th>
+</tr></thead><tbody>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>Warmup A — Read-Only</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">180s (3 min)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">Populate buffer pool with hot pages</td>
+</tr>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>Warmup B — Read-Write</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">600s (10 min)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">Steady-state redo log & dirty page ratio</td>
+</tr>
+</tbody></table>
+<br>
+<p><strong>Note:</strong> The warmup values were determined experimentally and are sufficient for the hardware configuration used. On slower systems, these durations may need adjustment.</p>
+<h3>6.2. Measurement Run</h3>
+<p>Following the warmup phase, each benchmark execution ran for <strong>900 seconds (15 minutes)</strong> with performance metrics captured at 1-second granularity. During execution, system-level telemetry tools (iostat, vmstat, mpstat, dstat) collected resource utilization data in parallel.</p>
+<h4>Data Collection Strategy</h4>
+<p>Single measurement per configuration. Consistency of the results is validated via selective repeat runs on configurations that show unexpected behavior.</p>
+<h4>Steady-State Verification</h4>
+<p><strong>Read Operations:</strong> Steady state for read workloads was verified by monitoring InnoDB buffer pool metrics and OS-level I/O read counters. The system was considered stable when physical reads dropped to near-zero after the warmup period (for configurations where the dataset fit in the buffer pool).</p>
+<br>
+<p><strong>Write Operations:</strong> For write-intensive phases, stability was determined by observing transaction throughput and latency metrics until they reached consistent values without significant drift.</p>
+<br>
+<p><strong>Known Limitation:</strong> While short-term metric stability (15 minutes) provides confidence in measurement consistency, it does not entirely eliminate the possibility of longer-term background activity such as adaptive flushing, change buffer merges, or checkpoint behavior that might emerge during extended multi-day operations.</p>
+<h2>7. Metrics & Reporting</h2>
+<h3>7.1. Primary Metrics</h3>
+<table width="100%" border="1" cellpadding="1" cellspacing="0" style="width: 100% !important;">
+<thead><tr>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Metric</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Definition</th>
+</tr></thead><tbody>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>TPS</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">Transactions per second (complete BEGIN/COMMIT cycles)</td>
+</tr>
+</tbody></table>
+<h3>7.2. Configuration Variables</h3>
+<table width="100%" border="1" cellpadding="1" cellspacing="0" style="width: 100% !important;">
+<thead><tr>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Variable</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Values Tested</th>
+</tr></thead><tbody>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>innodb_thread_concurrency</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">8, 16, 32, 64</td>
+</tr>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>Client Threads</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">128, 256, 512</td>
+</tr>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>Buffer Pool Size</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">2GB, 12GB, 32GB</td>
+</tr>
+</tbody></table>
+<h3>7.3. Output Files</h3>
+<p><strong>Per-run telemetry files:</strong></p>
+<ul>
+<li><code>.sysbench.txt</code> — Sysbench benchmark results</li>
+<li><code>.iostat.txt</code> — I/O statistics</li>
+<li><code>.vmstat.txt</code> — Virtual memory and system statistics</li>
+<li><code>.mpstat.txt</code> — Multi-processor utilization</li>
+<li><code>.dstat.txt</code> — Combined system resource monitoring</li>
+</ul>
+<br>
+<p><strong>Per-tier configuration files:</strong></p>
+<ul>
+<li><code>.cnf.txt</code> — Percona Server configuration file</li>
+<li><code>.vars.txt</code> — Server variables (<code>SHOW VARIABLES</code>)</li>
+<li><code>.status.txt</code> — Server status (<code>SHOW STATUS</code>)</li>
+</ul>
+<h2>8. Measurement Results</h2>
+<h3>8.1. 2GB Buffer Pool Results (I/O-Bound)</h3>
+<h4>8.1.1. Performance Summary</h4>
+<p>At the 2GB buffer pool configuration, the database is heavily I/O-bound with the 24GB dataset substantially exceeding available memory (1:12 ratio). This creates significant disk access pressure.</p>
+<br>
+<p>*Note: Percentages show performance improvement compared to Concur8 baseline.*</p>
+<br>
+<table width="100%" border="1" cellpadding="1" cellspacing="0" style="width: 100% !important;">
+<thead><tr>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Client Threads</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Concur8 (TPS)</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Concur16 (TPS)</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Concur32 (TPS)</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Concur64 (TPS)</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Best Setting</th>
+</tr></thead><tbody>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>128</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">947</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">1,920 (+103%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">2,440 (+158%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">1,935 (+104%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; "><strong>Concur32</strong></td>
+</tr>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>256</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">950</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">1,892 (+99%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">2,316 (+144%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">2,075 (+118%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; "><strong>Concur32</strong></td>
+</tr>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>512</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">1,021</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">1,578 (+55%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">2,198 (+115%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">2,203 (+116%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; "><strong>Concur64</strong></td>
+</tr>
+</tbody></table>
+<h4>8.1.2. Analysis</h4>
+<p><strong>Key Observations:</strong></p>
+<br>
+<p>1. <strong>Concur8 Creates Severe Bottleneck</strong>: With only 8 threads allowed inside InnoDB, throughput is artificially constrained to around 950-1,020 TPS regardless of client load. This is just 40-46% of optimal performance.</p>
+<br>
+<p>2. <strong>Concur16 Middle Ground</strong>: Concur16 provides decent performance improvement over Concur8 (55-103%), but remains significantly below optimal, achieving only 72-82% of the best configuration's throughput.</p>
+<br>
+<p>3. <strong>Concur32 Optimal at Lower Client Counts</strong>: At 128 and 256 client threads, Concur32 provides the best performance (2,316-2,440 TPS), suggesting that matching the concurrency limit to physical core count works well for I/O-bound workloads at moderate client loads.</p>
+<br>
+<p>4. <strong>Concur64 Better at High Client Load</strong>: At 512 client threads, Concur64 edges ahead of Concur32 (2,203 vs 2,198 TPS), showing that higher limits help maintain performance as client concurrency increases.</p>
+<br>
+<p><strong>I/O Characteristics</strong>: Low concurrency limits prevent maintaining sufficient I/O queue depth to saturate NVMe storage. Concur32 and Concur64 allow enough concurrent operations to fully utilize disk throughput.</p>
+<h3>8.2. 12GB Buffer Pool Results (Mixed Workload)</h3>
+<h4>8.2.1. Performance Summary</h4>
+<p>At 12GB buffer pool, approximately half of the 24GB dataset fits in memory (1:2 ratio), creating a realistic mixed workload with both cached and disk-bound operations.</p>
+<br>
+<table width="100%" border="1" cellpadding="1" cellspacing="0" style="width: 100% !important;">
+<thead><tr>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Client Threads</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Concur8 (TPS)</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Concur16 (TPS)</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Concur32 (TPS)</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Concur64 (TPS)</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Best Setting</th>
+</tr></thead><tbody>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>128</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">2,095</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">3,731 (+78%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">5,605 (+168%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">6,427 (+207%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; "><strong>Concur64</strong></td>
+</tr>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>256</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">2,102</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">3,680 (+75%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">5,541 (+164%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">6,449 (+207%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; "><strong>Concur64</strong></td>
+</tr>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>512</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">1,660</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">2,906 (+75%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">5,290 (+219%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">6,439 (+288%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; "><strong>Concur64</strong></td>
+</tr>
+</tbody></table>
+<h4>8.2.2. Analysis</h4>
+<p><strong>Key Observations:</strong></p>
+<br>
+<p>1. <strong>Dramatic Performance Spread</strong>: Concur64 provides 3-3.9x better throughput than Concur8, demonstrating how critical concurrency settings are for mixed workloads.</p>
+<br>
+<p>2. <strong>Concur64 Consistently Optimal</strong>: Best performance across all client loads (6,427-6,449 TPS). Maintains stability even as Concur8 degrades 21% at 512 threads.</p>
+<br>
+<p>3. <strong>Near-Linear Scaling</strong>: Each doubling of the concurrency limit approximately doubles performance (Concur8 < Concur16 < Concur32 < Concur64).</p>
+<br>
+<p><strong>Workload Characteristics</strong>: With 50% cache hit ratio, higher concurrency limits allow memory-resident operations to proceed while I/O-bound operations wait, improving overall throughput.</p>
+<h3>8.3. 32GB Buffer Pool Results (Memory-Resident)</h3>
+<h4>8.3.1. Performance Summary</h4>
+<p>At 32GB buffer pool, the entire 24GB working set fits in memory, eliminating I/O bottlenecks. Performance is primarily constrained by CPU cycles and lock contention.</p>
+<br>
+<table width="100%" border="1" cellpadding="1" cellspacing="0" style="width: 100% !important;">
+<thead><tr>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Client Threads</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Concur8 (TPS)</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Concur16 (TPS)</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Concur32 (TPS)</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Concur64 (TPS)</th>
+<th style="border: 1px solid #333; padding: 1px 2px; background-color: #3498db; color: white; font-weight: bold; text-align: center;">Best Setting</th>
+</tr></thead><tbody>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>128</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">5,152</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">9,658 (+87%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">13,166 (+156%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">13,142 (+155%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; "><strong>Concur32</strong></td>
+</tr>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>256</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">4,866</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">9,566 (+97%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">13,708 (+182%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">13,549 (+178%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; "><strong>Concur32</strong></td>
+</tr>
+<tr>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; font-size: 15px;"><strong>512</strong></td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">3,333</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">9,515 (+185%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">12,750 (+283%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; ">13,406 (+302%)</td>
+<td style="border: 1px solid #333; padding: 1px 2px; text-align: left; vertical-align: top; "><strong>Concur64</strong></td>
+</tr>
+</tbody></table>
+<h4>8.3.2. Analysis</h4>
+<p><strong>Key Observations:</strong></p>
+<br>
+<p>1. <strong>Highest Absolute Throughput</strong>: Memory-resident workloads achieve the highest TPS values (13,000-13,700), as expected when I/O is eliminated from the critical path.</p>
+<br>
+<p>2. <strong>Concur32 and Concur64 Neck-and-Neck</strong>: At 128 and 256 client threads, Concur32 and Concur64 perform nearly identically (13,142-13,708 TPS), with Concur32 having a slight edge. Both are approximately equal to the system's physical core count (40 cores) or slightly above.</p>
+<br>
+<p>3. <strong>Concur64 Wins at Extreme Oversubscription</strong>: At 512 client threads, Concur64 pulls ahead (13,406 vs 12,750 TPS), showing a 5% advantage when client load is extremely high relative to core count.</p>
+<br>
+<p>4. <strong>Massive Gap from Concur8</strong>: Even in memory-resident workloads, Concur8 severely bottlenecks performance, achieving only 38-39% of optimal throughput at 128-256 threads, and just 25% at 512 threads.</p>
+<br>
+<p>5. <strong>Concur16 Still Inadequate</strong>: Despite doubling Concur8, Concur16 still achieves only 70-75% of optimal performance, demonstrating that even 16 concurrent threads inside InnoDB is insufficient for a 40-core system.</p>
+<br>
+<p>6. <strong>Severe Degradation at 512 Threads</strong>: Concur8 drops from 5,152 TPS at 128 threads to just 3,333 TPS at 512 threads (-35%), showing that low concurrency limits cause severe performance collapse under high client load even when I/O is not a factor.</p>
+<br>
+<p><strong>System Metrics Analysis:</strong></p>
+<br>
+<p>Examining vmstat data reveals why Concur32 degrades while Concur64 maintains performance at 512 threads (32G buffer pool):</p>
+<br>
+<p><strong>Concur16</strong> (~9,500 TPS): Too restrictive with 1,024k-1,046k context switches/sec. 16-thread limit causes excessive context switching.</p>
+<br>
+<p><strong>Concur32</strong> (degrades -7% at 512 threads): Queue depth explodes from 93→167 runnable processes. 820k context switches/sec. 32-thread limit becomes bottleneck under extreme load.</p>
+<br>
+<p><strong>Concur64</strong> (stable 13,400-13,500 TPS): Lowest context switches at 628k/sec. Queue depth stays manageable at 110 processes. 64-thread limit handles high load efficiently.</p>
+<br>
+<p>At 512 threads, Concur32's limit causes queue depth to spike (167 vs 110 processes) and more context switches (820k vs 628k), creating serialization overhead that Concur64 avoids.</p>
+<br>
+<p><strong>Lock Contention Factor</strong>: Memory-resident workloads shift bottlenecks from I/O to CPU and InnoDB locks. Higher concurrency limits improve parallelism across 40 cores, but Concur32 and Concur64 perform similarly because both saturate available CPU resources.</p>
+<br>
+<p><strong>Why Concur32 and Concur64 Are Nearly Identical at 32GB, But Not at Other Buffer Sizes:</strong></p>
+<br>
+<p>The optimal concurrency setting depends on which resource becomes the bottleneck:</p>
+<br>
+<ul>
+<li><strong>2GB Buffer (I/O-Bound)</strong>: Disk is the bottleneck. Concur32 saturates NVMe drives (~2,200-2,400 TPS). Concur64 adds no benefit—extra concurrency just increases context switching.</li>
+</ul>
+<br>
+<ul>
+<li><strong>12GB Buffer (Mixed)</strong>: Largest performance gap (5,300-5,600 vs 6,400+ TPS). Concur64 allows memory operations to proceed while I/O waits. Concur32's limit prevents full exploitation of cached data during I/O waits.</li>
+</ul>
+<br>
+<ul>
+<li><strong>32GB Buffer (Memory-Resident)</strong>: CPU/lock bottleneck. Both Concur32 and Concur64 saturate all 40 cores. Beyond ~32 threads, lock contention limits throughput—more threads just contend for same resources.</li>
+</ul>
+<h3>8.4. Cross-Tier Performance Comparison</h3>
+<h4>8.4.1. Buffer Pool Scaling Analysis</h4>
+<p>Performance improvement from increasing buffer pool size (relative to 2GB baseline):</p>
+<br>
+<p><strong>At 128 Client Threads with Concur64:</strong></p>
+<ul>
+<li>2GB: 1,935 TPS (baseline)</li>
+<li>12GB: 6,427 TPS (+232%)</li>
+<li>32GB: 13,142 TPS (+579%)</li>
+</ul>
+<br>
+<p><strong>At 512 Client Threads with Concur64:</strong></p>
+<ul>
+<li>2GB: 2,203 TPS (baseline)</li>
+<li>12GB: 6,439 TPS (+192%)</li>
+<li>32GB: 13,406 TPS (+509%)</li>
+</ul>
+<br>
+<p><strong>Insight:</strong> Buffer pool increases provide 5-6x gains by eliminating I/O. Biggest jump: 2GB→12GB.</p>
+<h4>8.4.2. Client Thread Scaling Analysis</h4>
+<p>Performance change as client threads increase from 128 to 512:</p>
+<br>
+<p><strong>Concur8 (Worst Scalability):</strong></p>
+<ul>
+<li>2GB: 947 → 1,021 TPS (+8%)</li>
+<li>12GB: 2,095 → 1,660 TPS (-21%)</li>
+<li>32GB: 5,152 → 3,333 TPS (-35%)</li>
+</ul>
+<br>
+<p><strong>Concur64 (Best Scalability):</strong></p>
+<ul>
+<li>2GB: 1,935 → 2,203 TPS (+14%)</li>
+<li>12GB: 6,427 → 6,439 TPS (0%)</li>
+<li>32GB: 13,142 → 13,406 TPS (+2%)</li>
+</ul>
+<br>
+<p><strong>Insight:</strong> Low limits degrade under load (especially memory-resident workloads). High limits maintain stability—primary value is preventing collapse, not improving peak performance.</p>
+<h2>9. Limitations and Considerations</h2>
+<p>This benchmark provides valuable performance insights but operates under specific constraints that should be considered when interpreting results:</p>
+<br>
+<p><strong>Single-Host Architecture:</strong></p>
+<ul>
+<li>All measurements reflect single-node performance only</li>
+<li>Replication topologies, cluster configurations, and proxy layers introduce additional overhead not captured in these tests</li>
+<li>Network latency and multi-node coordination costs are not represented in these results</li>
+</ul>
+<br>
+<p><strong>Synthetic Workload Characteristics:</strong></p>
+<ul>
+<li>The sysbench oltp_read_write workload provides a standardized OLTP approximation but does not capture the complexity of real application query patterns</li>
+<li>Actual production workloads exhibit varying query distributions, transaction sizes, and access patterns</li>
+<li>Results should be interpreted as directional indicators rather than absolute predictions of production performance</li>
+</ul>
+<br>
+<p><strong>Data Distribution Patterns:</strong></p>
+<ul>
+<li>Benchmark uses uniformly distributed random data access across the entire dataset</li>
+<li>Real-world applications typically exhibit non-uniform access patterns (hot rows, temporal locality, geographic clustering)</li>
+<li>Cache hit rates and I/O patterns may differ significantly in production environments with skewed data access</li>
+</ul>
+<br>
+<p><strong>Dataset Size Constraints:</strong></p>
+<ul>
+<li>24GB working set is representative of small to medium database sizes</li>
+<li>Enterprise databases often operate at much larger scales (hundreds of GB to TB range)</li>
+<li>Larger datasets may exhibit different performance characteristics, particularly regarding buffer pool efficiency and I/O patterns</li>
+</ul>
+<br>
+<p><strong>Concurrency Parameter Isolation:</strong></p>
+<ul>
+<li>This benchmark focuses exclusively on <code>innodb_thread_concurrency</code></li>
+<li>Other concurrency-related parameters (innodb_read_io_threads, innodb_write_io_threads, etc.) were held constant</li>
+<li>Real-world tuning often requires adjusting multiple parameters in concert</li>
+</ul>
+<br>
+<p><strong>Controlled Environment:</strong></p>
+<ul>
+<li>Tests run on dedicated hardware with minimal background processes</li>
+<li>Production environments experience variable load patterns, competing workloads, and system maintenance activities</li>
+<li>Real-world performance may be affected by factors not present in this controlled benchmark environment</li>
+</ul>
+<br>
+<p>These limitations do not diminish the value of the findings but provide important context for applying these results to production scenarios. The relative performance differences observed between configurations remain instructive even as absolute numbers may vary in different deployment contexts.</p>
+<h2>10. Reproducibility</h2>
+<p>This benchmark is designed to be reproducible on compatible systems. The testing framework and automation scripts are available in the project repository.</p>
+<br>
+<p><strong>System Requirements:</strong></p>
+<br>
+<p><strong>Operating System:</strong></p>
+<ul>
+<li>Ubuntu 24.04 LTS (current supported platform)</li>
+<li>Other Linux distributions may work but are not officially tested</li>
+</ul>
+<br>
+<p><strong>Software Prerequisites:</strong></p>
+<br>
+<p>Install required packages:</p>
+<pre><code>
+sudo apt install docker.io sysstat sysbench mysql-client dstat -y
+</code></pre>
+<p><strong>Docker Group Permissions:</strong></p>
+<br>
+<p>Add your user to the docker group to run containers without sudo:</p>
+<pre><code>
+sudo usermod -aG docker $USER
+</code></pre>
+<p>After running this command, log out and back in, or run <code>newgrp docker</code> to activate the new group membership.</p>
+<br>
+<p><strong>Root Access Requirement:</strong></p>
+<br>
+<p>The benchmark scripts require sudo privileges for:</p>
+<ul>
+<li>CPU frequency governor configuration (<code>cpupower</code>)</li>
+<li>System telemetry collection (iostat, vmstat, mpstat, dstat)</li>
+<li>Configuration file management</li>
+</ul>
+<br>
+<p><strong>Running the Benchmarks:</strong></p>
+<br>
+<p>The repository includes automated scripts for running the complete benchmark suite:</p>
+<br>
+<pre><code>
+./run_all.sh
+</code></pre>
+<p>This script automatically:</p>
+<ul>
+<li>Installs additional dependencies</li>
+<li>Runs system profiling tools</li>
+<li>Executes benchmarks for each innodb_thread_concurrency value (8, 16, 32, 64)</li>
+<li>Tests all buffer pool configurations (2GB, 12GB, 32GB)</li>
+<li>Tests all client thread counts (128, 256, 512)</li>
+<li>Generates result directories with complete telemetry data</li>
+</ul>
+<br>
+<p><strong>Hardware Considerations:</strong></p>
+<br>
+<p>While the benchmark can run on various hardware configurations, results will vary significantly based on:</p>
+<ul>
+<li>CPU core count (affects optimal innodb_thread_concurrency value)</li>
+<li>Available RAM (determines realistic buffer pool tiers)</li>
+<li>Storage performance (critical for I/O-bound workloads)</li>
+</ul>
+<br>
+<p><strong>Adapting to Your System:</strong></p>
+<br>
+<p>The <code>innodb_thread_concurrency</code> values tested (8, 16, 32, 64) were chosen for a 40-core system. For different hardware:</p>
+<ul>
+<li>Systems with 16 cores: Consider testing 4, 8, 16, 32</li>
+<li>Systems with 20 cores: Consider testing 8, 16, 32, 48</li>
+<li>Systems with 64+ cores: Consider testing 16, 32, 64, 128</li>
+</ul>
+<br>
+<p>A common starting point is to set <code>innodb_thread_concurrency</code> to match your physical core count (not hyperthreaded count) and adjust based on workload characteristics.</p>
+<br>
+<p><strong>Result Files:</strong></p>
+<br>
+<p>Each test run produces:</p>
+<ul>
+<li>Sysbench output with TPS/QPS metrics</li>
+<li>System telemetry (iostat, vmstat, mpstat, dstat)</li>
+<li>Configuration files (my.cnf, SHOW VARIABLES, SHOW STATUS)</li>
+</ul>
+<br>
+<p>All files follow the naming pattern: <code>Tier{2G,12G,32G}_Concur{8,16,32,64}_{128,256,512}th.{sysbench,iostat,vmstat,mpstat,dstat}.txt</code></p>
+<br>
+</body>
+</html>
