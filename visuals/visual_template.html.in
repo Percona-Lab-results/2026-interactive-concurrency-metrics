@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Sysbench Interactive Comparison</title>
+  <title>OLTP Read-Write With Variable Concurrency Comparison</title>
   <script>
     function loadPlotly(cb) {
       var s = document.createElement('script');
@@ -102,7 +102,7 @@
   </style>
 </head>
 <body>
-  <h2>Sysbench Performance — Interactive Comparison</h2>
+  <h2>Sysbench Performance — OLTP Read-Write benchmark with Variable Concurrency</h2>
   <div class="wrap">
     <div class="card">
       <label for="serverSel">Servers (multi-select)</label>
@@ -120,31 +120,6 @@
         </div>
       </div>
 
-      <div class="row">
-        <div>
-          <label for="metricSel">Metric</label>
-          <select id="metricSel">
-            <option value="tps" selected>Transactions/sec (TPS)</option>
-            <option value="qps">Queries/sec (QPS)</option>
-          </select>
-
-          <label for="xSel">X axis</label>
-          <select id="xSel">
-            <option value="threads" selected>Threads</option>
-            <option value="mem_gb">Memory (GB)</option>
-          </select>
-
-          <label for="threadsAnchor">When X=Memory, use Threads =</label>
-          <select id="threadsAnchor"></select>
-
-          <label for="memAnchor">When X=Threads, use Memory =</label>
-          <select id="memAnchor"></select>
-
-          <label for="concurAnchor">Anchor Concurrency =</label>
-          <select id="concurAnchor"></select>
-        </div>
-      </div>
-
       <div class="btnrow">
         <button id="allServersBtn">Select all servers</button>
         <button id="allMemsBtn">Select all memory</button>
@@ -153,8 +128,6 @@
       </div>
 
       <div class="hint">
-        • <b>X=Threads</b>: overlays selected servers at selected memory &amp; concurrency values (or anchors).<br/>
-        • <b>X=Memory</b>: overlays selected servers at the anchor thread count &amp; concurrency.<br/>
         Missing points are omitted automatically.
       </div>
     </div>
@@ -165,7 +138,7 @@
         <div>
           <div style="font-family: system-ui, sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 6px; color: #333;">
             Percona pt-summary System Info
-            <a href="{{BASE_URL}}/pt-summary-full.txt" target="_blank" rel="noopener" style="margin-left: 10px; font-size: 12px; font-weight: 600; text-decoration: none; background: #1a73e8; color: #fff; padding: 3px 10px; border-radius: 5px;">&#8599; Open full pt-summary</a>
+            <a href="benchmark_logs_custom/pt-summary-full.txt" target="_blank" rel="noopener" style="margin-left: 10px; font-size: 12px; font-weight: 600; text-decoration: none; background: #1a73e8; color: #fff; padding: 3px 10px; border-radius: 5px;">&#8599; Open full pt-summary</a>
           </div>
           <table style="border-collapse: collapse; width: 100%; font-family: monospace; font-size: 13px;">
             <thead>
@@ -195,7 +168,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Test Type</td>      <td style="border: 1px solid #ccc; padding: 4px 12px;">{{TEST_TYPE}}</td></tr>
+              <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Test Type</td>      <td style="border: 1px solid #ccc; padding: 4px 12px;">OLTP Read-Write</td></tr>
               <tr style="background:#fafafa;"><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Tables</td>         <td style="border: 1px solid #ccc; padding: 4px 12px;">20</td></tr>
               <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Rows per table</td> <td style="border: 1px solid #ccc; padding: 4px 12px;">5,000,000</td></tr>
               <tr style="background:#fafafa;"><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Test duration</td>  <td style="border: 1px solid #ccc; padding: 4px 12px;">900s (15 min)</td></tr>
@@ -206,6 +179,24 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <div class="card" style="margin-top: 18px;">
+    <div style="font-family: system-ui, sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 6px; color: #333;">About This Graph</div>
+    <table style="border-collapse: collapse; width: 100%; font-family: monospace; font-size: 13px;">
+      <thead>
+        <tr style="background: #e8eaf0;">
+          <th style="border: 1px solid #ccc; padding: 5px 12px; text-align: left; color: #555;">Dimension</th>
+          <th style="border: 1px solid #ccc; padding: 5px 12px; text-align: left; color: #555;">Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Server</td><td style="border: 1px solid #ccc; padding: 4px 12px;">Percona Server 8.4.8 — the only server tested in this benchmark</td></tr>
+        <tr style="background:#fafafa;"><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Memory tiers (<code>innodb_buffer_pool_size</code>)</td><td style="border: 1px solid #ccc; padding: 4px 12px;">2 GB, 12 GB, 32 GB</td></tr>
+        <tr><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Concurrency (<code>innodb_thread_concurrency</code>)</td><td style="border: 1px solid #ccc; padding: 4px 12px;">8, 16, 32, 64 — controls how many threads InnoDB allows inside the engine simultaneously</td></tr>
+        <tr style="background:#fafafa;"><td style="border: 1px solid #ccc; padding: 4px 12px; color: #666;">Client threads</td><td style="border: 1px solid #ccc; padding: 4px 12px;">128, 256, 512 — high-concurrency range where thread contention effects are most visible</td></tr>
+      </tbody>
+    </table>
   </div>
 
 <script>
@@ -239,68 +230,31 @@ function numeric(v) {
 }
 
 function buildTraces() {
-  const metric = el("metricSel").value;
-  const xMode = el("xSel").value;
-
   const selectedServers = getSelectedValues(el("serverSel"));
   const selectedMems = getSelectedValues(el("memSel")).map(numeric).filter(v => v !== null);
   const selectedConcurs = getSelectedValues(el("concurSel")).map(numeric).filter(v => v !== null);
 
-  const anchorThreads = numeric(el("threadsAnchor").value);
-  const anchorMem = numeric(el("memAnchor").value);
-  const anchorConcur = numeric(el("concurAnchor").value);
-
   const servers = selectedServers.length ? selectedServers : [SERVERS[0]];
-  const mems = selectedMems.length ? selectedMems : [anchorMem];
-  const concurs = selectedConcurs.length ? selectedConcurs : [anchorConcur];
+  const mems = selectedMems.length ? selectedMems : MEMS;
+  const concurs = selectedConcurs.length ? selectedConcurs : CONCURS;
 
   const traces = [];
 
-  if (xMode === "threads") {
-    servers.forEach(server => {
-      mems.forEach(mem => {
-        concurs.forEach(concur => {
-          const pts = DATA
-            .filter(r => r.server === server && r.mem_gb === mem && r.concurrency === concur && r[metric] !== null)
-            .sort((a,b)=>a.threads-b.threads);
-
-          if (!pts.length) return;
-
-          traces.push({
-            type: "scatter",
-            mode: "lines+markers",
-            name: `${server} | ${mem}G | C${concur}`,
-            x: pts.map(p=>p.threads),
-            y: pts.map(p=>p[metric]),
-            customdata: pts.map(p=>({server: p.server, mem_gb: p.mem_gb, concurrency: p.concurrency, threads: p.threads, tps: p.tps, qps: p.qps})),
-            marker: { size: 10 },
-            hovertemplate:
-              '<b>%{customdata.server}</b><br>' +
-              'Memory: %{customdata.mem_gb}G<br>' +
-              'Concurrency: %{customdata.concurrency}<br>' +
-              'Threads: %{customdata.threads}<br>' +
-              'TPS: %{customdata.tps:,.0f}<br>' +
-              'QPS: %{customdata.qps:,.0f}' +
-              '<extra></extra>',
-          });
-        });
-      });
-    });
-  } else {
-    servers.forEach(server => {
+  servers.forEach(server => {
+    mems.forEach(mem => {
       concurs.forEach(concur => {
         const pts = DATA
-          .filter(r => r.server === server && r.threads === anchorThreads && r.concurrency === concur && r[metric] !== null)
-          .sort((a,b)=>a.mem_gb-b.mem_gb);
+          .filter(r => r.server === server && r.mem_gb === mem && r.concurrency === concur && r.tps !== null)
+          .sort((a,b)=>a.threads-b.threads);
 
         if (!pts.length) return;
 
         traces.push({
           type: "scatter",
           mode: "lines+markers",
-          name: `${server} | ${anchorThreads} threads | C${concur}`,
-          x: pts.map(p=>p.mem_gb),
-          y: pts.map(p=>p[metric]),
+          name: `${server} | ${mem}G | C${concur}`,
+          x: pts.map(p=>p.threads),
+          y: pts.map(p=>p.tps),
           customdata: pts.map(p=>({server: p.server, mem_gb: p.mem_gb, concurrency: p.concurrency, threads: p.threads, tps: p.tps, qps: p.qps})),
           marker: { size: 10 },
           hovertemplate:
@@ -314,29 +268,21 @@ function buildTraces() {
         });
       });
     });
-  }
+  });
 
   return traces;
 }
 
 function layoutForMode() {
-  const metric = el("metricSel").value;
-  const xMode = el("xSel").value;
-  const yTitle = (metric === "tps") ? "Transactions per second (TPS)" : "Queries per second (QPS)";
-  const xTitle = (xMode === "threads") ? "Threads" : "Memory (GB)";
-  const title = (xMode === "threads")
-    ? `Sysbench: ${yTitle} vs Threads`
-    : `Sysbench: ${yTitle} vs Memory`;
-
   return {
-    title: { text: title },
+    title: { text: "Sysbench: Transactions per second (TPS) vs Threads" },
     xaxis: {
-      title: xTitle,
-      type: (xMode === "threads") ? "log" : "linear",
-      tickvals: (xMode === "threads") ? [1,4,16,32,64,128,256,512] : undefined,
-      ticktext: (xMode === "threads") ? ["1","4","16","32","64","128","256","512"] : undefined,
+      title: "Threads",
+      type: "log",
+      tickvals: [1,4,16,32,64,128,256,512],
+      ticktext: ["1","4","16","32","64","128","256","512"],
     },
-    yaxis: { title: yTitle, rangemode: 'tozero' },
+    yaxis: { title: "Transactions per second (TPS)", rangemode: 'tozero' },
     margin: { l: 70, r: 20, t: 60, b: 60 },
     hovermode: "closest",
     hoverlabel: {
@@ -348,7 +294,7 @@ function layoutForMode() {
 
 const BASE_URL = "{{BASE_URL}}";
 const CUSTOM_BASE = "https://percona-lab-results.github.io/2026-interactive-metrics-970/";
-const LOG_EXTS = ["sysbench.txt", "iostat.txt", "mpstat.txt", "vmstat.txt"];
+const LOG_EXTS = ["sysbench.txt", "iostat.txt", "mpstat.txt", "vmstat.txt", "dstat.txt"];
 
 function serverToPath(server) {
   const idx = server.indexOf(' ');
@@ -443,9 +389,6 @@ function init() {
   fillOptions(el("serverSel"), SERVERS);
   fillOptions(el("memSel"), MEMS, (v)=>`${v}G`);
   fillOptions(el("concurSel"), CONCURS, (v)=>`C${v}`);
-  fillOptions(el("threadsAnchor"), THREADS);
-  fillOptions(el("memAnchor"), MEMS);
-  fillOptions(el("concurAnchor"), CONCURS);
 
   const defaultServers = SERVERS.filter(s =>
     s.startsWith("custom") || s.startsWith("mariadb 12") || s.startsWith("mysql 8.4") || s.startsWith("mysql 9.6") || s.startsWith("percona-server 8.4")
@@ -454,11 +397,7 @@ function init() {
   setSelected(el("memSel"), v => Number(v) === 12);
   setSelected(el("concurSel"), _ => true);
 
-  el("threadsAnchor").value = 64;
-  el("memAnchor").value = 12;
-  el("concurAnchor").value = CONCURS[0];
-
-  ["serverSel","memSel","concurSel","metricSel","xSel","threadsAnchor","memAnchor","concurAnchor"].forEach(id => {
+  ["serverSel","memSel","concurSel"].forEach(id => {
     el(id).addEventListener("change", render);
   });
 
@@ -469,11 +408,6 @@ function init() {
     setSelected(el("serverSel"), v => defaultServers.includes(v));
     setSelected(el("memSel"), v => Number(v) === 12);
     setSelected(el("concurSel"), _ => true);
-    el("metricSel").value = "tps";
-    el("xSel").value = "threads";
-    el("threadsAnchor").value = 64;
-    el("memAnchor").value = 12;
-    el("concurAnchor").value = CONCURS[0];
     render();
   });
 

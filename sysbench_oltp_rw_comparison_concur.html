@@ -283,8 +283,8 @@ function layoutForMode() {
     xaxis: {
       title: "Threads",
       type: "log",
-      tickvals: [128, 256, 512],
-      ticktext: ["128", "256", "512"],
+      tickvals: [1,4,16,32,64,128,256,512],
+      ticktext: ["1","4","16","32","64","128","256","512"],
     },
     yaxis: { title: "Transactions per second (TPS)", rangemode: 'tozero' },
     margin: { l: 70, r: 20, t: 60, b: 60 },
@@ -298,7 +298,7 @@ function layoutForMode() {
 
 const BASE_URL = "benchmark_logs_custom";
 const CUSTOM_BASE = "https://percona-lab-results.github.io/2026-interactive-metrics-970/";
-const LOG_EXTS = ["sysbench.txt", "iostat.txt", "mpstat.txt", "vmstat.txt"];
+const LOG_EXTS = ["sysbench.txt", "iostat.txt", "mpstat.txt", "vmstat.txt", "dstat.txt"];
 
 function serverToPath(server) {
   const idx = server.indexOf(' ');
