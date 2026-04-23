@@ -1,0 +1,100 @@
+[mysqld]
+log_error_verbosity = 3
+log_error = /tmp/Tier12G.errlog.txt
+# --- General -------------------------------------------------------------------
+user                            = mysql
+#datadir                         = /var/lib/mysql
+#socket                          = /var/run/mysqld/mysqld.sock
+#pid-file                        = /var/run/mysqld/mysqld.pid
+bind-address                    = 0.0.0.0
+port                            = 3306
+skip-name-resolve               = ON
+performance_schema              = OFF
+
+# --- Connection & Threading ----------------------------------------------------
+max_connections                 = 2000
+max_connect_errors              = 1000000
+max_prepared_stmt_count         = 1000000
+thread_handling                 = pool-of-threads   # MariaDB thread pool
+thread_pool_size                = 80                # match physical core count
+thread_pool_max_threads         = 160
+thread_stack                    = 512K
+thread_cache_size               = 256
+back_log                        = 4096
+wait_timeout                    = 300
+interactive_timeout             = 300
+connect_timeout                 = 60
+
+# --- InnoDB - Buffer pool Tier -------------------------------------------------
+innodb_buffer_pool_size         = 12G
+
+# --- InnoDB – I/O (NVMe can saturate many threads) ----------------------------
+innodb_io_capacity              = 10000
+innodb_io_capacity_max          = 20000
+innodb_read_io_threads          = 16
+innodb_write_io_threads         = 16
+innodb_use_native_aio           = ON
+
+# --- InnoDB instances - one per 5G of memory, but no more than 8 -------------
+# --- InnoDB – Log / Durability -------------------------------------------------
+#innodb_log_file_size is set later with the version specific logic
+innodb_log_buffer_size          = 256M
+innodb_flush_log_at_trx_commit  = 1          # full ACID; use 2 for ~10 % more speed
+innodb_doublewrite              = ON
+
+# --- InnoDB – Concurrency & OLTP Tuning ---------------------------------------
+innodb_thread_concurrency       = 0
+#innodb_adaptive_hash_index      = ON
+#innodb_adaptive_flushing        = ON
+#innodb_adaptive_flushing_lwm    = 10
+#innodb_lru_scan_depth           = 4096
+innodb_stats_on_metadata        = OFF
+innodb_open_files               = 65536
+innodb_lock_wait_timeout        = 50
+innodb_rollback_on_timeout      = ON
+
+# --- Per-Session Buffers (keep modest; many connections × this = RAM) ----------
+sort_buffer_size                = 4M
+join_buffer_size                = 4M
+read_buffer_size                = 2M
+read_rnd_buffer_size            = 4M
+tmp_table_size                  = 256M
+max_heap_table_size             = 256M
+
+# --- Table & File Handles ------------------------------------------------------
+table_open_cache                = 65536
+table_definition_cache          = 65536
+open_files_limit                = 1000000
+table_open_cache_instances      = 64
+
+# --- Binary Log (enable for replication / PITR) --------------------------------
+server_id                       = 1
+log_bin                         = /var/lib/mysql/mysql-bin
+binlog_format                   = ROW
+binlog_row_image                = MINIMAL
+sync_binlog                     = 1
+binlog_cache_size               = 4M
+max_binlog_size                 = 512M
+
+# --- Slow Query Log ------------------------------------------------------------
+slow_query_log                  = ON
+slow_query_log_file             = /var/lib/mysql/slow.log
+long_query_time                 = 1
+log_queries_not_using_indexes   = OFF
+min_examined_row_limit          = 1000
+
+# --- Character Set -------------------------------------------------------------
+character_set_server            = utf8mb4
+collation_server                = utf8mb4_unicode_ci
+
+# --- Misc ----------------------------------------------------------------------
+max_allowed_packet              = 64M
+bulk_insert_buffer_size         = 256M
+myisam_sort_buffer_size         = 128M
+key_buffer_size                 = 64M        # MyISAM only; keep small for OLTP
+
+# --- Version specific settings -------------------------------------------------
+innodb_redo_log_capacity = 4G
+innodb_change_buffering = none
+innodb_flush_method = O_DIRECT
+innodb_buffer_pool_instances    = 2

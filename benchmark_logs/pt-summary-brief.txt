@@ -1,0 +1,11 @@
+========================================
+ Percona pt-summary System Info
+========================================
+Platform:            Linux
+Release:             Ubuntu 24.04 LTS (noble)
+Kernel:              6.8.0-60-generic
+Architecture:        CPU = 64-bit, OS = 64-bit
+Processors:          physical = 2, cores = 40, virtual = 80, hyperthreading = yes
+Models:              80xIntel(R) Xeon(R) Gold 6230 CPU @ 2.10GHz
+Memory Total:        187.5G
+========================================

@@ -1,0 +1,125 @@
+# Percona Toolkit System Summary Report ######################
+        Date | 2026-04-22 09:50:01 UTC (local TZ: UTC +0000)
+    Hostname | beast-node7.tp.int.percona.com
+      Uptime | 316 days, 11:07,  4 users,  load average: 7.24, 109.93, 187.51
+    Platform | Linux
+     Release | Ubuntu 24.04 LTS (noble)
+      Kernel | 6.8.0-60-generic
+Architecture | CPU = 64-bit, OS = 64-bit
+   Threading | NPTL 2.39
+     SELinux | No SELinux detected
+ Virtualized | No virtualization detected
+# Processor ##################################################
+  Processors | physical = 2, cores = 40, virtual = 80, hyperthreading = yes
+      Speeds | 1x1275.092, 1x1736.316, 1x1768.767, 1x1904.596, 1x1942.098, 1x2240.047, 1x2480.343, 1x2727.789, 1x2987.641, 1x3393.712, 1x3397.547, 1x3402.777, 1x3509.021, 1x3542.444, 1x3599.952, 1x3599.986, 1x3600.823, 1x3601.074, 1x3601.393, 1x3605.521, 55x3900.000, 1x799.652, 1x800.155, 1x800.172, 1x801.093, 1x934.396
+      Models | 80xIntel(R) Xeon(R) Gold 6230 CPU @ 2.10GHz
+      Caches | 80x28160 KB
+  Designation               Configuration                  Size     Associativity
+  ========================= ============================== ======== ======================
+# Memory #####################################################
+         Total | 187.5G
+          Free | 63.7G
+          Used | physical = 43.9G, swap allocated = 8.0G, swap used = 2.8M, virtual = 43.9G
+        Shared | 11.4M
+       Buffers | 81.6G
+        Caches | 143.6G
+         Dirty | 128692 kB
+       UsedRSS | 40.0G
+    Swappiness | 60
+   DirtyPolicy | 20, 10
+   DirtyStatus | 0, 0
+    Numa Nodes | 2
+   Numa Policy | default
+Preferred Node | current
+   Node    Size        Free        CPUs
+   ====    ====        ====        ====
+   node1   96748 MB    40743 MB    20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 
+   node0   95288 MB    24450 MB    0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 
+
+  Locator   Size     Speed             Form Factor   Type          Type Detail
+  ========= ======== ================= ============= ============= ===========
+# Mounted Filesystems ########################################
+  Filesystem      Size Used Type     Opts                                                                                                 Mountpoint
+  /dev/nvme0n1p1  2.9T   4% ext4     rw,relatime                                                                                          /mnt/nvme
+  /dev/nvme0n1p1  2.9T   4% ext4     rw,relatime                                                                                          /mnt/nvme
+  /dev/sda1       1.1G   1% vfat     rw,relatime,fmask=0022,dmask=0022,codepage=437,iocharset=iso8859-1,shortname=mixed,errors=remount-ro /boot/efi
+  /dev/sda2        98G   1% ext4     rw,relatime                                                                                          /boot
+  /dev/sda3       780G   4% ext4     rw,relatime                                                                                          /
+  efivarfs        512K   8% efivarfs rw,nosuid,nodev,noexec,relatime                                                                      /sys/firmware/efi/efivars
+  tmpfs            19G   1% tmpfs    rw,nosuid,nodev,inode64                                                                              /run/user/1000
+  tmpfs            19G   1% tmpfs    rw,nosuid,nodev,noexec,relatime,size=5120k,inode64                                                   /run/user/1000
+  tmpfs            19G   1% tmpfs    rw,nosuid,nodev,noexec,relatime,size=19664612k,mode=755,inode64                                      /run/user/1000
+  tmpfs            19G   1% tmpfs    rw,nosuid,nodev,relatime,size=19664612k,nr_inodes=4916153,mode=700,uid=1000,gid=1000,inode64         /run/user/1000
+  tmpfs            19G   1% tmpfs    rw,nosuid,nodev,relatime,size=19664612k,nr_inodes=4916153,mode=700,uid=955676158,gid=10000,inode64   /run/user/1000
+  tmpfs            19G   1% tmpfs    rw,nosuid,nodev,inode64                                                                              /run/user/955676158
+  tmpfs            19G   1% tmpfs    rw,nosuid,nodev,noexec,relatime,size=5120k,inode64                                                   /run/user/955676158
+  tmpfs            19G   1% tmpfs    rw,nosuid,nodev,noexec,relatime,size=19664612k,mode=755,inode64                                      /run/user/955676158
+  tmpfs            19G   1% tmpfs    rw,nosuid,nodev,relatime,size=19664612k,nr_inodes=4916153,mode=700,uid=1000,gid=1000,inode64         /run/user/955676158
+  tmpfs            19G   1% tmpfs    rw,nosuid,nodev,relatime,size=19664612k,nr_inodes=4916153,mode=700,uid=955676158,gid=10000,inode64   /run/user/955676158
+  tmpfs            19G   1% tmpfs    rw,nosuid,nodev,inode64                                                                              /run
+  tmpfs            19G   1% tmpfs    rw,nosuid,nodev,noexec,relatime,size=5120k,inode64                                                   /run
+  tmpfs            19G   1% tmpfs    rw,nosuid,nodev,noexec,relatime,size=19664612k,mode=755,inode64                                      /run
+  tmpfs            19G   1% tmpfs    rw,nosuid,nodev,relatime,size=19664612k,nr_inodes=4916153,mode=700,uid=1000,gid=1000,inode64         /run
+  tmpfs            19G   1% tmpfs    rw,nosuid,nodev,relatime,size=19664612k,nr_inodes=4916153,mode=700,uid=955676158,gid=10000,inode64   /run
+  tmpfs           5.0M   0% tmpfs    rw,nosuid,nodev,inode64                                                                              /run/lock
+  tmpfs           5.0M   0% tmpfs    rw,nosuid,nodev,noexec,relatime,size=5120k,inode64                                                   /run/lock
+  tmpfs           5.0M   0% tmpfs    rw,nosuid,nodev,noexec,relatime,size=19664612k,mode=755,inode64                                      /run/lock
+  tmpfs           5.0M   0% tmpfs    rw,nosuid,nodev,relatime,size=19664612k,nr_inodes=4916153,mode=700,uid=1000,gid=1000,inode64         /run/lock
+  tmpfs           5.0M   0% tmpfs    rw,nosuid,nodev,relatime,size=19664612k,nr_inodes=4916153,mode=700,uid=955676158,gid=10000,inode64   /run/lock
+  tmpfs            94G   0% tmpfs    rw,nosuid,nodev,inode64                                                                              /dev/shm
+  tmpfs            94G   0% tmpfs    rw,nosuid,nodev,noexec,relatime,size=5120k,inode64                                                   /dev/shm
+  tmpfs            94G   0% tmpfs    rw,nosuid,nodev,noexec,relatime,size=19664612k,mode=755,inode64                                      /dev/shm
+  tmpfs            94G   0% tmpfs    rw,nosuid,nodev,relatime,size=19664612k,nr_inodes=4916153,mode=700,uid=1000,gid=1000,inode64         /dev/shm
+  tmpfs            94G   0% tmpfs    rw,nosuid,nodev,relatime,size=19664612k,nr_inodes=4916153,mode=700,uid=955676158,gid=10000,inode64   /dev/shm
+# Disk Schedulers And Queue Size #############################
+     nvme0n1 | [none] 1023
+         sda | [mq-deadline] 64
+# Disk Partitioning ##########################################
+# Kernel Inode State #########################################
+dentry-state | 2393832	2374368	45	0	2190811	0
+     file-nr | 3552	0	9223372036854775807
+    inode-nr | 200496	321
+# LVM Volumes ################################################
+Unable to collect information
+# LVM Volume Groups ##########################################
+Unable to collect information
+# RAID Controller ############################################
+  Controller | No RAID controller detected
+# Network Config #############################################
+  Controller | Intel Corporation Ethernet Controller X550 (rev 01)
+  Controller | Intel Corporation Ethernet Controller X550 (rev 01)
+ FIN Timeout | 60
+  Port Range | 60999
+# Interface Statistics #######################################
+  interface  rx_bytes rx_packets  rx_errors   tx_bytes tx_packets  tx_errors
+  ========= ========= ========== ========== ========== ========== ==========
+  lo       40000000000000 35000000000          0 40000000000000 35000000000          0
+  enp94s0f0 1250000000   15000000          0   35000000     125000          0
+  enp94s0f1 50000000000  150000000          0 15000000000  125000000          0
+  docker0           0          0          0          0          0          0
+# Network Devices ############################################
+  Device    Speed     Duplex
+  ========= ========= =========
+  enp94s0f0  10000Mb/s  Full      
+  enp94s0f1  10000Mb/s  Full      
+  docker0    Unknown!   Unknown!  
+# Top Processes ##############################################
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+3604503 bogdan.+  20   0   22428   6400   4480 R   8.3   0.0   0:00.02 top
+      1 root      20   0   22672  12160   8960 S   0.0   0.0  90:46.25 systemd
+      2 root      20   0       0      0      0 S   0.0   0.0   0:35.28 kthreadd
+      3 root      20   0       0      0      0 S   0.0   0.0   0:00.00 pool_wo+
+      4 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker+
+      5 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker+
+      6 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker+
+      7 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker+
+      9 root       0 -20       0      0      0 I   0.0   0.0   0:00.00 kworker+
+# Notable Processes ##########################################
+  PID    OOM    COMMAND
+    ?      ?    sshd doesn't appear to be running
+3565933    -17    multipathd
+3566032    -17    sshd
+3566128    -17    systemd-udevd
+# Memory management ##########################################
+Transparent huge pages are enabled.
+# The End ####################################################

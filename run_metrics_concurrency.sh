@@ -10,7 +10,8 @@ POOL_SIZES=(32 12 2)      # The 3 Tiers (GB)
 
 THREADS=(128 256 512)
 
-CONCURRENCY=(8 16 32 64)
+CONCURRENCY=(0 8 16 32 64)
+#CONCURRENCY=(0)
 
 # --- DEBUG SETTINGS ---
 TABLE_ROWS=5000000
@@ -229,7 +230,7 @@ generate_config() {
     #For MariaDB
     echo "thread_handling                 = pool-of-threads   # MariaDB thread pool" >> "$CFG"
     echo "thread_pool_size                = 80                # match physical core count" >> "$CFG"
-    echo "thread_pool_max_threads         = 2000" >> "$CFG"
+    echo "thread_pool_max_threads         = 160" >> "$CFG"
 
     echo "thread_stack                    = 512K" >> "$CFG"
     echo "thread_cache_size               = 256" >> "$CFG"
